@@ -1,35 +1,39 @@
 
-This run a network test across multiple nodes and compares them against KPI. It is a frontend of other tools.
-Idea is to hide as much as possible the complexity of running the other tools and show easy to interpret results.
+This tool will run a network test across multiple nodes and compare the results against IBM Spectrum Scale Key Performance Indicators (KPI).
+This tool attempts to hide much of the complexity of running network measurement tools, and present the results in an easy to interpret way.
 
-**You need to populate the hosts.json file with the IP addresses of the nodes to participate. Names are not allowed.**
+Note:  
+**You need to first populate the hosts.json file with the IP addresses of the nodes to participate in the test.  Node names are not allowed.**
 
-It requires a long time to run, depending on the number of nodes. The tool estimates a runtime at startup.
+This test can require a long time to execute, depending on the number of nodes. This tool will display an estimated  runtime at startup.
 
 Remarks:
-  - Runs on RedHat 7.5/7.6 and CentOS 7.5/7.6 on ppc64le, and x86_64. However at this point all nodes within a test must be of the same architecture
-  - Python 2.7.x required, which is the default on Redhat/Centos 7.x series
-  - Only Python standard libraries are used
-  - fping, gcc-c++ and psmisc must be installed on all nodes that participate in the test (it does check for it)
-  - SSH root passwordless access must be possible from the node that runs the tool to all the nodes that participate in the test (it does check it)
-  - The minimum FPING_COUNT value for a valid test must be 500, and a minimum of 10 (defaults to 500)
-  - The minimum PERF_RUNTIME value for a valid test must be 1200, and a minimum of 30 (defaults to 1200)
-  - The number of hosts must be between 4 and 32 (included)
-  - It generates a log directory with all the raw data output for future comparisons
-  - It returns 0 if all tests are passed in all nodes, it returns an integer > 0 if any number of errors
-  - There is not RDMA support on throughput test yet
-  - TCP port 6668 needs to be open and free in all nodes
-  - The tool needs to be run on a local filesystem
+  - This tool runs on RedHat 7.5/7.6 on x86_64 and ppc64le architectures. At this point all nodes within a test must be of the same architecture.
+  - Python 2.7.x is required, which is the default on Redhat 7.x systems.
+  - Only Python standard libraries are used.
+  - fping, gcc-c++ and psmisc must be installed on all nodes that participate in the test.  This tool will log an error if a required package is missing from any node.
+  - SSH root passwordless access must be configured from the node that runs the tool to all the nodes that participate in the tests. This tool will log an error if any node does not meet this requirement. 
+  - The minimum FPING_COUNT value for a valid test must be 500, and a minimum of 10 (defaults to 500).
+  - The minimum PERF_RUNTIME value for a valid test must be 1200, and a minimum of 30 (defaults to 1200).
+  - The number of hosts must be between 4 and 32, inclusive.
+  - This tool generates a log directory with all the raw data output for future comparisons
+  - This tool returns 0 if all tests are passed in all nodes, and returns an integer > 0 if any errors are detected.
+  - There is not RDMA support on throughput test at this time.
+  - TCP port 6668 needs to be open and free in all nodes.
+  - This tool needs to be run on a local filesystem.
+
+KNOWN ISSUES:
+  - There are no known issues at this time. If you encounter problems please contact IBM support or open an issue in our repository (https://github.ibm.com/SpectrumScaleTools/ECE_NETWORK_READINESS/issues)
 
 TODO:
   - Add more metrics to check for on the throughput test (lost packets and retransmission values)
-  - Also check latency at throughput test level not just ICMP
+  - Check latency at throughput test level not just ICMP
   - Add precompiled versions of throughput tool so no compiling is needed
   - Add RDMA support to throughput test
-  - Add a load previous tests option to compare results
-  - Add option to load hosts via command line, not just JSON file
+  - Add an option to load previous test results and compare
+  - Add an option to load hosts via command line, not just JSON file
 
-Comes with some help:
+Usage statement:
 ```
 # ./koet.py -h
 usage: koet.py [-h] [-l KPI_LATENCY] [-c FPING_COUNT] [-m KPI_THROUGHPUT]
