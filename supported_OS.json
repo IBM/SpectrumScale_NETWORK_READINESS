@@ -1,0 +1,11 @@
+{
+  "json_version": "1.0",
+  "SUSE Linux Enterprise Server 12 SP2": "NOK",
+  "SUSE Linux Enterprise Server 12 SP3": "NOK",
+  "SUSE Linux Enterprise Server 15": "NOK",
+  "Red Hat Enterprise Linux": "NOK",
+  "Red Hat Enterprise Linux Server 7.4": "NOK",
+  "Red Hat Enterprise Linux Server 7.5": "OK",
+  "Red Hat Enterprise Linux Server 7.6": "OK",
+  "CentOS Linux 7.5.1804": "OK"
+}
