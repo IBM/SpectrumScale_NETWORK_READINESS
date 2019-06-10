@@ -257,7 +257,7 @@ def show_header(koet_h_version, json_version,
             NOCOLOR)
         print(
             RED +
-            "They do not neccesarily reflect the numbers you would see with " +
+            "They do not necessarily reflect the numbers you would see with " +
             "Spectrum Scale and your particular workload" +
             NOCOLOR)
         print
