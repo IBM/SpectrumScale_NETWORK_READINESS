@@ -3,7 +3,8 @@ This tool will run a network test across multiple nodes and compare the results 
 This tool attempts to hide much of the complexity of running network measurement tools, and present the results in an easy to interpret way.
 
 Note:  
-**You need to first populate the hosts.json file with the IP addresses of the nodes to participate in the test.  Node names are not allowed.**
+**You need to first populate the hosts.json file with the IP addresses of the nodes to participate in the test.  Node names are not allowed.
+Alternatively, you can pass the hosts as CSV string with a parameter**
 
 This test can require a long time to execute, depending on the number of nodes. This tool will display an estimated  runtime at startup.
 
@@ -12,32 +13,29 @@ Remarks:
   - Python 2.7.x is required, which is the default on Redhat 7.x systems.
   - Only Python standard libraries are used.
   - fping, gcc-c++ and psmisc must be installed on all nodes that participate in the test.  This tool will log an error if a required package is missing from any node.
-  - SSH root passwordless access must be configured from the node that runs the tool to all the nodes that participate in the tests. This tool will log an error if any node does not meet this requirement. 
+  - SSH root passwordless access must be configured from the node that runs the tool to all the nodes that participate in the tests. This tool will log an error if any node does not meet this requirement.
   - The minimum FPING_COUNT value for a valid test must be 500, and a minimum of 10 (defaults to 500).
   - The minimum PERF_RUNTIME value for a valid test must be 1200, and a minimum of 30 (defaults to 1200).
   - The number of hosts must be between 4 and 32, inclusive.
   - This tool generates a log directory with all the raw data output for future comparisons
   - This tool returns 0 if all tests are passed in all nodes, and returns an integer > 0 if any errors are detected.
   - There is not RDMA support on throughput test at this time.
-  - TCP port 6668 needs to be open and free in all nodes.
+  - TCP port 6668 needs to be reachable and not in use in all nodes.
   - This tool needs to be run on a local filesystem.
 
 KNOWN ISSUES:
   - There are no known issues at this time. If you encounter problems please contact IBM support or open an issue in our repository (https://github.ibm.com/SpectrumScaleTools/ECE_NETWORK_READINESS/issues)
 
 TODO:
-  - Add more metrics to check for on the throughput test (lost packets and retransmission values)
-  - Check latency at throughput test level not just ICMP
   - Add precompiled versions of throughput tool so no compiling is needed
   - Add RDMA support to throughput test
   - Add an option to load previous test results and compare
-  - Add an option to load hosts via command line, not just JSON file
 
 Usage statement:
 ```
 # ./koet.py -h
-usage: koet.py [-h] [-l KPI_LATENCY] [-c FPING_COUNT] [-m KPI_THROUGHPUT]
-               [-p PERF_RUNTIME] [-v]
+usage: koet.py [-h] [-l KPI_LATENCY] [-c FPING_COUNT] [--hosts HOSTS_CSV]
+               [-m KPI_THROUGHPUT] [-p PERF_RUNTIME] [-v]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -46,14 +44,16 @@ optional arguments:
                         value for certification is 1.0 msec
   -c FPING_COUNT, --fping_count FPING_COUNT
                         The number of fping counts to run per node and test.
-                        The minimum required value for certification is 500
+                        The value has to be at least 2 seconds.The minimum
+                        required value for certification is 500
+  --hosts HOSTS_CSV     IP addreses of hosts on CSV format.Using this
+                        overrides the hosts.json file.
   -m KPI_THROUGHPUT, --min_throughput KPI_THROUGHPUT
-                        The minimum MB/sec required to pass the test. The value
-                        has to be at least 10 seconds. The minimum required
-                        value for certification is 2000
+                        The minimum MB/sec required to pass the test. The
+                        minimum required value for certification is 2000
   -p PERF_RUNTIME, --perf_runtime PERF_RUNTIME
                         The seconds of nsdperf runtime per test. The value has
-                        to be at least 30 seconds. The minimum required value
+                        to be at least 10 seconds.The minimum required value
                         for certification is 1200
   -v, --version         show program's version number and exit
 ```
@@ -62,10 +62,10 @@ An output example:
 ```
 # ./koet.py
 
-Welcome to KOET, version 1.00
+Welcome to KOET, version 1.1
 
 JSON files versions:
-	supported OS:		1.0
+	supported OS:		1.1
 	packages: 		1.1
 
 Please use https://github.com/IBM/SpectrumScale_NETWORK_READINESS to get latest versions and report issues about this tool.
@@ -82,7 +82,7 @@ The performance runtime value of 1200 second per test and node is good to certif
 
 It requires remote ssh passwordless between all nodes for user root already configured
 
-This test is going to take at least 850 minutes to complete
+This test run estimation is 850 minutes
 
 This software comes with absolutely no warranty of any kind. Use it at your own risk
 
@@ -96,11 +96,11 @@ At this point you can see the estimated runtime, consider using screen or alike.
 ```
 # ./koet.py -l 1.5 -c 100 -p 10 - m 100
 
-Welcome to KOET, version 1.0
+Welcome to KOET, version 1.1
 
 JSON files versions:
-        supported OS:           1.0
-        packages:               1.0
+        supported OS:           1.1
+        packages:               1.1
 
 Please use https://github.com/IBM/SpectrumScaleTools  to get latest versions and report issues about KOET.
 
@@ -116,7 +116,7 @@ WARNING: The performance runtime value of 10 second per test and node is not eno
 
 It requires remote ssh passwordless between all nodes for user root already configured
 
-This test is going to take at least 50 minutes to complete
+This test run estimation is 50 minutes
 
 This software comes with absolutely no warranty of any kind. Use it at your own risk
 
@@ -158,84 +158,12 @@ OK: on host 10.10.16.10 the psmisc installation status is as expected
 OK: on host 10.10.11.35 the fping installation status is as expected
 OK: on host 10.10.11.35 the gcc-c++ installation status is as expected
 OK: on host 10.10.11.35 the psmisc installation status is as expected
-
-Starting ping run from 10.10.16.17 to each node
-        Starting ping from 10.10.16.17 to 10.10.16.16
-        Ping from 10.10.16.17 to 10.10.16.16 completed
-        Starting ping from 10.10.16.17 to 10.10.16.15
-        Ping from 10.10.16.17 to 10.10.16.15 completed
-        Starting ping from 10.10.16.17 to 10.10.16.13
-        Ping from 10.10.16.17 to 10.10.16.13 completed
-        Starting ping from 10.10.16.17 to 10.10.16.10
-        Ping from 10.10.16.17 to 10.10.16.10 completed
-        Starting ping from 10.10.16.17 to 10.10.11.35
-        Ping from 10.10.16.17 to 10.10.11.35 completed
-Ping run from 10.10.16.17 to each node completed
-
-Starting ping run from 10.10.16.16 to each node
-        Starting ping from 10.10.16.16 to 10.10.16.17
-        Ping from 10.10.16.16 to 10.10.16.17 completed
-        Starting ping from 10.10.16.16 to 10.10.16.15
-        Ping from 10.10.16.16 to 10.10.16.15 completed
-        Starting ping from 10.10.16.16 to 10.10.16.13
-        Ping from 10.10.16.16 to 10.10.16.13 completed
-        Starting ping from 10.10.16.16 to 10.10.16.10
-        Ping from 10.10.16.16 to 10.10.16.10 completed
-        Starting ping from 10.10.16.16 to 10.10.11.35
-        Ping from 10.10.16.16 to 10.10.11.35 completed
-Ping run from 10.10.16.16 to each node completed
-
-Starting ping run from 10.10.16.15 to each node
-        Starting ping from 10.10.16.15 to 10.10.16.17
-        Ping from 10.10.16.15 to 10.10.16.17 completed
-        Starting ping from 10.10.16.15 to 10.10.16.16
-        Ping from 10.10.16.15 to 10.10.16.16 completed
-        Starting ping from 10.10.16.15 to 10.10.16.13
-        Ping from 10.10.16.15 to 10.10.16.13 completed
-        Starting ping from 10.10.16.15 to 10.10.16.10
-        Ping from 10.10.16.15 to 10.10.16.10 completed
-        Starting ping from 10.10.16.15 to 10.10.11.35
-        Ping from 10.10.16.15 to 10.10.11.35 completed
-Ping run from 10.10.16.15 to each node completed
-
-Starting ping run from 10.10.16.13 to each node
-        Starting ping from 10.10.16.13 to 10.10.16.17
-        Ping from 10.10.16.13 to 10.10.16.17 completed
-        Starting ping from 10.10.16.13 to 10.10.16.16
-        Ping from 10.10.16.13 to 10.10.16.16 completed
-        Starting ping from 10.10.16.13 to 10.10.16.15
-        Ping from 10.10.16.13 to 10.10.16.15 completed
-        Starting ping from 10.10.16.13 to 10.10.16.10
-        Ping from 10.10.16.13 to 10.10.16.10 completed
-        Starting ping from 10.10.16.13 to 10.10.11.35
-        Ping from 10.10.16.13 to 10.10.11.35 completed
-Ping run from 10.10.16.13 to each node completed
-
-Starting ping run from 10.10.16.10 to each node
-        Starting ping from 10.10.16.10 to 10.10.16.17
-        Ping from 10.10.16.10 to 10.10.16.17 completed
-        Starting ping from 10.10.16.10 to 10.10.16.16
-        Ping from 10.10.16.10 to 10.10.16.16 completed
-        Starting ping from 10.10.16.10 to 10.10.16.15
-        Ping from 10.10.16.10 to 10.10.16.15 completed
-        Starting ping from 10.10.16.10 to 10.10.16.13
-        Ping from 10.10.16.10 to 10.10.16.13 completed
-        Starting ping from 10.10.16.10 to 10.10.11.35
-        Ping from 10.10.16.10 to 10.10.11.35 completed
-Ping run from 10.10.16.10 to each node completed
-
-Starting ping run from 10.10.11.35 to each node
-        Starting ping from 10.10.11.35 to 10.10.16.17
-        Ping from 10.10.11.35 to 10.10.16.17 completed
-        Starting ping from 10.10.11.35 to 10.10.16.16
-        Ping from 10.10.11.35 to 10.10.16.16 completed
-        Starting ping from 10.10.11.35 to 10.10.16.15
-        Ping from 10.10.11.35 to 10.10.16.15 completed
-        Starting ping from 10.10.11.35 to 10.10.16.13
-        Ping from 10.10.11.35 to 10.10.16.13 completed
-        Starting ping from 10.10.11.35 to 10.10.16.10
-        Ping from 10.10.11.35 to 10.10.16.10 completed
-Ping run from 10.10.11.35 to each node completed
+OK: TCP port 6668 seems to be not in use on 10.10.16.17
+OK: TCP port 6668 seems to be not in use on 10.10.16.16
+OK: TCP port 6668 seems to be not in use on 10.10.16.15
+OK: TCP port 6668 seems to be not in use on 10.10.16.13
+OK: TCP port 6668 seems to be not in use on 10.10.16.10
+OK: TCP port 6668 seems to be not in use on 10.10.11.35
 
 Starting ping run from 10.10.16.17 to all nodes
 Ping run from 10.10.16.17 to all nodes completed
@@ -254,37 +182,6 @@ Ping run from 10.10.16.10 to all nodes completed
 
 Starting ping run from 10.10.11.35 to all nodes
 Ping run from 10.10.11.35 to all nodes completed
-
-Results for test 1:1
-OK: on host 10.10.16.17 the 1:1 average latency is 0.47 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.17 the 1:1 maximum latency is 0.6 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.16.17 the 1:1 minimum latency is 0.4 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.17 the 1:1 standard deviation of latency is 0.07 msec. Which is lower than the KPI of 0.33 msec
-
-OK: on host 10.10.16.16 the 1:1 average latency is 0.35 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.16 the 1:1 maximum latency is 0.39 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.16.16 the 1:1 minimum latency is 0.33 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.16 the 1:1 standard deviation of latency is 0.02 msec. Which is lower than the KPI of 0.33 msec
-
-OK: on host 10.10.16.15 the 1:1 average latency is 0.52 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.15 the 1:1 maximum latency is 0.73 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.16.15 the 1:1 minimum latency is 0.4 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.15 the 1:1 standard deviation of latency is 0.12 msec. Which is lower than the KPI of 0.33 msec
-
-OK: on host 10.10.16.13 the 1:1 average latency is 0.41 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.13 the 1:1 maximum latency is 0.46 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.16.13 the 1:1 minimum latency is 0.33 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.13 the 1:1 standard deviation of latency is 0.05 msec. Which is lower than the KPI of 0.33 msec
-
-OK: on host 10.10.16.10 the 1:1 average latency is 0.51 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.10 the 1:1 maximum latency is 0.58 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.16.10 the 1:1 minimum latency is 0.46 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.10 the 1:1 standard deviation of latency is 0.04 msec. Which is lower than the KPI of 0.33 msec
-
-OK: on host 10.10.11.35 the 1:1 average latency is 0.52 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.11.35 the 1:1 maximum latency is 0.59 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.11.35 the 1:1 minimum latency is 0.45 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.11.35 the 1:1 standard deviation of latency is 0.05 msec. Which is lower than the KPI of 0.33 msec
 
 Results for test 1:n
 OK: on host 10.10.16.17 the 1:n average latency is 0.55 msec. Which is lower than the KPI of 1.0 msec
@@ -334,7 +231,6 @@ INFO: The standard deviation throughput value is 51.32
 
 The summary of this run:
 
-        The 1:1 fping latency was successful in all nodes
         The 1:n fping average latency was successful in all
         The 1:n throughput test was successful in all nodes
 

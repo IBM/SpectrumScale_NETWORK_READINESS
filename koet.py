@@ -8,11 +8,12 @@ import subprocess
 import platform
 import shlex
 import time
+import socket
 from shutil import copyfile
 from decimal import Decimal
 import argparse
 import operator
-from math import sqrt
+from math import sqrt, ceil
 from functools import reduce
 
 # Colorful constants
@@ -24,8 +25,8 @@ NOCOLOR = '\033[0m'
 # KPI + runtime acceptance values
 MAX_AVG_LATENCY = 1.00  # Acceptance value should be 1 msec or less
 FPING_COUNT = 500  # Acceptance value should be 500 or more
-PERF_RUNTIME = 1200 # Acceptance value should be 1200 or more
-MIN_NSD_THROUGHPUT = 2000 # Acceptance value on RR read 1 client n server read
+PERF_RUNTIME = 1200  # Acceptance value should be 1200 or more
+MIN_NSD_THROUGHPUT = 2000  # Acceptance value with lots of margin
 
 # GITHUB URL
 GIT_URL = "https://github.com/IBM/SpectrumScale_NETWORK_READINESS"
@@ -34,7 +35,7 @@ GIT_URL = "https://github.com/IBM/SpectrumScale_NETWORK_READINESS"
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.0"
+KOET_VERSION = "1.1"
 
 
 def load_json(json_file_str):
@@ -51,11 +52,14 @@ def load_json(json_file_str):
 
 def estimate_runtime(hosts_dictionary, fp_count, perf_runtime):
     number_of_hosts = len(hosts_dictionary)
-    estimated_rt_fp = number_of_hosts * (number_of_hosts - 1) * fp_count
-    estimated_rt_perf = number_of_hosts * (number_of_hosts - 1) * perf_runtime
+    estimated_rt_fp = number_of_hosts * fp_count
+    # use number of hosts + 1 to include N:N iteration of nsdperf
+    # add 20 sec per node as startup, shutdown, compile overhead
+    estimated_rt_perf = (number_of_hosts + 1) * (20 + perf_runtime)
     estimated_runtime = estimated_rt_fp + estimated_rt_perf
     # minutes we always return 2 even for short test runs
-    return max((estimated_runtime / 60), 2)
+    estimated_runtime_minutes = int(ceil(estimated_runtime / 60.))
+    return max(estimated_runtime_minutes, 2)
 
 
 def parse_arguments():
@@ -85,6 +89,15 @@ def parse_arguments():
         metavar='FPING_COUNT',
         type=int,
         default=500)
+    parser.add_argument(
+        '--hosts',
+        action='store',
+        dest='hosts',
+        help='IP addreses of hosts on CSV format. ' +
+        'Using this overrides the hosts.json file.',
+        metavar='HOSTS_CSV',
+        type=str,
+        default="")
     parser.add_argument(
         '-m',
         '--min_throughput',
@@ -124,8 +137,22 @@ def parse_arguments():
     if args.perf_runtime <= 9:
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "nsdperf runtime cannot be less than 10 seconds\n")
-    return (round(args.max_avg_latency, 2), args.fping_count, args.perf_runtime,
-    args.perf_throughput)
+    # we check is a CSV string and if so we put it on dictionary
+    cli_hosts = False
+    hosts_dictionary = {}
+    if args.hosts != "":
+        cli_hosts = True
+        try:
+            host_raw = args.hosts
+            hosts = host_raw.split(",")
+            for host_key in hosts:
+                hosts_dictionary.update({host_key: "ECE"})
+        except Exception:
+            sys.exit(RED + "QUIT: " + NOCOLOR +
+                     "hosts parameter is not on CSV format")
+    return (round(args.max_avg_latency, 2), args.fping_count,
+            args.perf_runtime, args.perf_throughput,
+            cli_hosts, hosts_dictionary)
 
 
 def check_kpi_is_ok(max_avg_latency, fping_count, perf_bw, perf_rt):
@@ -150,7 +177,8 @@ def check_kpi_is_ok(max_avg_latency, fping_count, perf_bw, perf_rt):
         perf_rt_certifies = True
 
     return (latency_kpi_certifies, fping_count_certifies, perf_bw_certifies,
-    perf_rt_certifies)
+            perf_rt_certifies)
+
 
 def show_header(koet_h_version, json_version,
                 estimated_runtime_str, max_avg_latency,
@@ -241,8 +269,8 @@ def show_header(koet_h_version, json_version,
             "root already configured" +
             NOCOLOR)
         print
-        print(YELLOW + "This test is going to take at least " +
-              estimated_runtime_str + " minutes to complete" + NOCOLOR)
+        print(YELLOW + "This test run estimation is " +
+              estimated_runtime_str + " minutes" + NOCOLOR)
         print
         print(
             RED +
@@ -341,6 +369,39 @@ def ssh_rpm_is_installed(host, rpm_package):
     return return_code
 
 
+def check_tcp_port_free(hosts_dictionary, tcpport):
+    errors = 0
+    # Checks certain port is not in use
+    for host in hosts_dictionary.keys():
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2)
+        openit = sock.connect_ex((host, tcpport))
+        if openit == 0:  # I can connect so it is NOT free
+            errors = errors + 1
+            print(RED +
+                  "ERROR: " +
+                  NOCOLOR +
+                  "on host " +
+                  str(host) +
+                  " TCP port " +
+                  str(tcpport) +
+                  " seems to be not free")
+        else:  # cannot connect so not in used or not accesible
+            print(
+                GREEN +
+                "OK: " +
+                NOCOLOR +
+                "on host " +
+                str(host) +
+                " TCP port " +
+                str(tcpport) +
+                " seems to be free")
+
+    if errors > 0:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "TCP port " + str(tcpport) + " is not free in all hosts")
+
+
 def host_packages_check(hosts_dictionary, packages_dictionary):
     # Checks if packages from JSON are installed or not based on the input
     # data ont eh JSON
@@ -398,7 +459,7 @@ def check_hosts_are_ips(hosts_dictionary):
                 RED +
                 "QUIT: " +
                 NOCOLOR +
-                "on hosts JSON file '" +
+                "on hosts JSON file or CLI parameter '" +
                 host +
                 "' is not a valid IPv4. Fix before running this tool again.\n")
 
@@ -432,25 +493,6 @@ def create_log_dir():
 
 def latency_test(hosts_dictionary, logdir, fping_count):
     fping_count_str = str(fping_count)
-    # 1:1 for all nodes
-    for srchost in hosts_dictionary.keys():
-        print
-        print("Starting ping run from " + srchost + " to each node")
-        for dsthost in hosts_dictionary.keys():
-            if srchost is not dsthost:
-                print("\tStarting ping from " + srchost + " to " + dsthost)
-                fileurl = os.path.join(logdir, "lat_" + srchost + "_" + dsthost)
-                command = "ssh -o StrictHostKeyChecking=no " + srchost + \
-                    " fping -C " + fping_count_str + " -q -A " + dsthost
-                with open(fileurl, 'wb', 0) as logfping:
-                    runfping = subprocess.Popen(shlex.split(
-                        command), stderr=subprocess.STDOUT, stdout=logfping)
-                    runfping.wait()
-                    logfping.close()
-                print("\tPing from " + srchost +
-                      " to " + dsthost + " completed")
-        print("Ping run from " + srchost + " to each node completed")
-
     hosts_fping = ""
     for host in hosts_dictionary.keys():  # we ping ourselvels as well
         hosts_fping = hosts_fping + host + " "
@@ -469,36 +511,57 @@ def latency_test(hosts_dictionary, logdir, fping_count):
         print("Ping run from " + srchost + " to all nodes completed")
 
 
+def throughput_test_os(command, nsd_logfile):
+    try:
+        runperf = subprocess.Popen(shlex.split(command), stdout=nsd_logfile)
+        runperf.wait()
+        # Extra wait here it might be not needed now that we added it on
+        # nsdperTool.py startup, but we keep it.
+        time.sleep(5)
+    except BaseException:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "Throughput run from " + client + " to all nodes " +
+                 "failed unexpectedly\n")
+
+
 def throughput_test(hosts_dictionary, logdir, perf_runtime):
     throughput_json_files_list = []
     print
-    print("Starting throughput tests. Please be patient")
+    print("Starting throughput tests. Please be patient.")
     for client in hosts_dictionary.keys():
         print
         print("Starting throughput run from " + client + " to all nodes")
         server_hosts_dictionary = dict(hosts_dictionary)
         del server_hosts_dictionary[client]
         server_csv_str = (",".join(server_hosts_dictionary.keys()))
-        # Call nsdperf exec/wrapper
+        # Craft the call of nsdperf exec/wrapper
         command = "./nsdperfTool.py -t read -k 4194304 -b 4194304 " \
             "-R 256 -W 256 -T 256 -d " + logdir + " -s " + \
             server_csv_str + " -c " + client + " -l " + str(perf_runtime)
         nsd_logfile = open(logdir + "/nsdperfTool_log", "a")
-        try:
-            runperf = subprocess.Popen(shlex.split(command), stdout=nsd_logfile)
-            runperf.wait()
-            #Extra wait here it might be not needed now that we added it on
-            #nsdperTool.py startup, but we keep it.
-            time.sleep(5)
-            nsd_logfile.close()
-        except BaseException:
-            sys.exit(RED + "QUIT: " + NOCOLOR + \
-                "Throughput run from " + client + " to all nodes " + \
-                "failed unexpectedly\n")
-        #Copy the file to avoid overwrite it
-        copyfile(logdir + "/nsdperfResult.json", logdir + "/nsd_" + \
-            client + ".json")
+        throughput_test_os(command, nsd_logfile)
+        nsd_logfile.close()
+        # Copy the file to avoid overwrite it
+        copyfile(logdir + "/nsdperfResult.json", logdir + "/nsd_" +
+                 client + ".json")
         print("Completed throughput run from " + client + " to all nodes")
+    print
+    print("Starting many to many nodes throughput test")
+    # We run a mess run to catch few more issues
+    clients_nodes_d = dict(hosts_dictionary.items()[len(hosts_dictionary)/2:])
+    servers_nodes_d = dict(hosts_dictionary.items()[:len(hosts_dictionary)/2])
+    clients_csv = (",".join(clients_nodes_d.keys()))
+    servers_csv = (",".join(servers_nodes_d.keys()))
+    command = "./nsdperfTool.py -t read -k 4194304 -b 4194304 " \
+        "-R 256 -W 256 -T 256 -d " + logdir + " -s " + \
+        servers_csv + " -c " + clients_csv + " -l " + str(perf_runtime)
+    nsd_logfile = open(logdir + "/nsdperfTool_log", "a")
+    throughput_test_os(command, nsd_logfile)
+    nsd_logfile.close()
+    # Copy the file to avoid overwrite it
+    copyfile(logdir + "/nsdperfResult.json", logdir + "/nsd_mess" + ".json")
+    print("Completed Many to many nodes throughput test")
+    return clients_nodes_d
 
 
 def mean_list(list):
@@ -553,10 +616,12 @@ def stddev_list(list, mean):
     stddev_lat = round(stddev_lat, 2)
     return stddev_lat
 
+
 def pct_diff_list(bw_str_list):
-    #as the rest expects a str
+    # as the rest expects a str
     try:
-        pc_diff_bw = float(min(bw_str_list)) * 100 / float(max(bw_str_list))
+        pc_diff_bw = abs(float(min(bw_str_list)) * 100 /
+                         float(max(bw_str_list)))
     except BaseException:
         sys.exit(
             RED +
@@ -567,12 +632,12 @@ def pct_diff_list(bw_str_list):
 
 
 def file_exists(fileurl):
-    #Lets check the files do actually exists
+    # Lets check the files do actually exists
     if os.path.isfile(fileurl):
         pass
     else:
-        sys.exit(RED + "QUIT: " + NOCOLOR + " cannot find file: " + \
-            fileurl)
+        sys.exit(RED + "QUIT: " + NOCOLOR + " cannot find file: " +
+                 fileurl)
 
 
 def load_json_files_into_dictionary(json_files_list):
@@ -582,30 +647,63 @@ def load_json_files_into_dictionary(json_files_list):
             json_file_name = open(json_file, 'r')
             all_json_dict[json_file] = json.load(json_file_name)
         return all_json_dict
-    except:
-        sys.exit(RED + "QUIT: " + NOCOLOR  + \
-            " cannot load JSON file: " + json_file)
+    except BaseException:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 " cannot load JSON file: " + json_file)
 
 
-def load_throughput_tests(logdir, hosts_dictionary):
+def load_throughput_tests(logdir, hosts_dictionary, many2many_clients):
     throughput_dict = {}
+    nsd_lat_dict = {}
+    nsd_std_dict = {}
+    nsd_rxe_dict = {}
+    nsd_rxe_m2m_d = {}
+    nsd_txe_dict = {}
+    nsd_txe_m2m_d = {}
+    nsd_rtr_dict = {}
+    nsd_rtr_m2m_d = {}
     file_host_dict = {}
     throughput_json_files_list = []
     for host in hosts_dictionary.keys():
         fileurl = logdir + "/nsd_" + host + ".json"
         file_exists(fileurl)
         throughput_json_files_list.append(fileurl)
-        file_host_dict.update( {fileurl : host} )
-    nsd_json_dict = load_json_files_into_dictionary(throughput_json_files_list)
-    for json_file in throughput_json_files_list:
-        #here we add the metrics we will proces later
-        host_key = file_host_dict[json_file]
-        throughput_v = Decimal(nsd_json_dict[json_file]['throughput(MB/sec)'])
-        throughput_dict.update( { host_key : throughput_v} )
-    #lets calculate % diff max min mean etc ...
+        file_host_dict.update({fileurl: host})
+    # We append the mess run
+    mess_file_url = logdir + "/nsd_mess.json"
+    throughput_json_files_list.append(mess_file_url)
+    file_host_dict.update({mess_file_url: "all at the same time"})
+    nsd_json = load_json_files_into_dictionary(throughput_json_files_list)
+    for file in throughput_json_files_list:
+        # here we add the metrics we will proces later
+        host_key = file_host_dict[file]
+        throughput_v = Decimal(nsd_json[file]['throughput(MB/sec)'])
+        throughput_dict.update({host_key: throughput_v})
+        n_lt_v = Decimal(nsd_json[file]['networkDelay'][0]['average'])
+        nsd_lat_dict.update({host_key: n_lt_v})
+        n_std = Decimal(nsd_json[file]['networkDelay'][0]['standardDeviation'])
+        nsd_std_dict.update({host_key: n_std})
+        if host_key == "all at the same time":
+            for host in many2many_clients.keys():
+                n_rxe = Decimal(nsd_json[file]['netData'][host]['rxErrors'])
+                nsd_rxe_m2m_d.update({host: n_rxe})
+                n_txe = Decimal(nsd_json[file]['netData'][host]['txErrors'])
+                nsd_txe_m2m_d.update({host: n_txe})
+                n_rtr = Decimal(nsd_json[file]['netData'][host]['retransmit'])
+                nsd_rtr_m2m_d.update({host: n_rtr})
+        else:
+            n_rxe = Decimal(nsd_json[file]['netData'][host_key]['rxErrors'])
+            nsd_rxe_dict.update({host_key: n_rxe})
+            n_txe = Decimal(nsd_json[file]['netData'][host_key]['txErrors'])
+            nsd_txe_dict.update({host_key: n_txe})
+            n_rtr = Decimal(nsd_json[file]['netData'][host_key]['retransmit'])
+            nsd_rtr_dict.update({host_key: n_rtr})
+
+    # lets calculate % diff max min mean etc ...
     bw_str_list = []
-    for value in throughput_dict.itervalues():
-        bw_str_list.append(str(value))
+    # filter "all" out of list of node bandwidths
+    bw_str_list = [str(throughput_dict[k]) for k in throughput_dict
+                   if k != 'all at the same time']
     pc_diff_bw = pct_diff_list(bw_str_list)
     max_bw = max_list(bw_str_list)
     min_bw = min_list(bw_str_list)
@@ -613,7 +711,9 @@ def load_throughput_tests(logdir, hosts_dictionary):
     stddev_bw = stddev_list(bw_str_list, mean_bw)
     pc_diff_bw = round(pc_diff_bw, 2)
     mean_bw = round(mean_bw, 2)
-    return throughput_dict, pc_diff_bw, max_bw, min_bw, mean_bw, stddev_bw
+    return (throughput_dict, nsd_lat_dict, nsd_std_dict, pc_diff_bw, max_bw,
+            min_bw, mean_bw, stddev_bw, nsd_rxe_dict, nsd_rxe_m2m_d,
+            nsd_txe_dict, nsd_txe_m2m_d, nsd_rtr_dict, nsd_rtr_m2m_d)
 
 
 def load_multiple_fping(logdir, hosts_dictionary):
@@ -626,8 +726,6 @@ def load_multiple_fping(logdir, hosts_dictionary):
     min_all = []
     # Loads log file and returns dictionary
     for srchost in hosts_dictionary.keys():
-        #print
-        #print("Loading ping results of " + srchost + " to all nodes")
         fileurl = os.path.join(logdir, "lat_" + srchost + "_all")
         file_exists(fileurl)
         logfping = open(fileurl, 'r', 0)
@@ -652,62 +750,28 @@ def load_multiple_fping(logdir, hosts_dictionary):
         all_fping_dictionary_max[srchost] = max_list(max_all)
         all_fping_dictionary_min[srchost] = min_list(min_all)
         all_fping_dictionary_stddev[srchost] = stddev_list(mean_all, mean)
-        #print("Load ping results from " + srchost + " to all nodes completed")
+        mean_all = []
+        max_all = []
+        min_all = []
     return (all_fping_dictionary, all_fping_dictionary_max,
             all_fping_dictionary_min, all_fping_dictionary_stddev)
 
 
-def load_single_fping(logdir, hosts_dictionary):
-    single_fping_dictionary = {}
-    single_fping_dictionary_max = {}
-    single_fping_dictionary_min = {}
-    single_fping_dictionary_stddev = {}
-    # Loads log file and return dictinary
-    for srchost in hosts_dictionary.keys():
-        #print
-        #print("Loading ping results of " + srchost + " to each node")
-        for dsthost in hosts_dictionary.keys():
-            if srchost is not dsthost:
-                #print("\tLoading from " + srchost + " to " + dsthost)
-                fileurl = os.path.join(logdir, "lat_" + srchost + "_" + dsthost)
-                file_exists(fileurl)
-                try:
-                    with open(fileurl, 'r', 0) as logfping:
-                        rawfping = logfping.readline()  # Only 1 line
-                        hostIP = rawfping.split(':')[0]
-                        hostIP = hostIP.rstrip(' ')
-                        latencies = rawfping.split(':')[1]
-                        latencies = latencies.lstrip(
-                            ' ')  # Clean up first space
-                        # Clean up new line character
-                        latencies = latencies.rstrip('\n')
-                        latencies_list = latencies.split(' ')
-                        #print("\tLoaded from " + srchost +
-                              #" to " + dsthost + " completed")
-                except Exception:
-                    sys.exit(RED + "QUIT: " + NOCOLOR +
-                             "Cannot parse LOG file: " + fileurl)
-                # Following calls need to be optimized
-                # we use Decimal to round the results
-                mean = Decimal(mean_list(latencies_list))
-                mean = round(mean, 2)  # we round to 2 decimals
-                single_fping_dictionary[hostIP] = mean
-                single_fping_dictionary_max[hostIP] = max_list(latencies_list)
-                single_fping_dictionary_min[hostIP] = min_list(latencies_list)
-                single_fping_dictionary_stddev[hostIP] = stddev_list(
-                    latencies_list, mean)
-        #print("Load ping results from " + srchost + " to each node completed")
-    return (single_fping_dictionary, single_fping_dictionary_max,
-            single_fping_dictionary_min, single_fping_dictionary_stddev)
-
-
 def nsd_KPI(min_nsd_throughput,
             throughput_dict,
+            nsd_lat_dict,
+            nsd_std_dict,
             pc_diff_bw,
             max_bw,
             min_bw,
             mean_bw,
-            stddev_bw):
+            stddev_bw,
+            nsd_rxe_dict,
+            nsd_rxe_m2m_d,
+            nsd_txe_dict,
+            nsd_txe_m2m_d,
+            nsd_rtr_dict,
+            nsd_rtr_m2m_d):
     errors = 0
     print("Results for throughput test ")
     for host in throughput_dict.keys():
@@ -740,19 +804,19 @@ def nsd_KPI(min_nsd_throughput,
         print(RED +
               "ERROR: " +
               NOCOLOR +
-              "the difference of throughput between maximum and minumum " + \
-              "values is " + str(100 - pc_diff_bw) + "%, which is more " + \
+              "the difference of throughput between maximum and minimum " +
+              "values is " + str(abs(100 - pc_diff_bw)) + "%, which is more " +
               "than 20% defined on the KPI")
     else:
         print(GREEN +
               "OK: " +
               NOCOLOR +
-              "the difference of throughput between maximum and minumum " + \
-              "values is " + str(100 - pc_diff_bw) + "%, which is less " + \
+              "the difference of throughput between maximum and minimum " +
+              "values is " + str(abs(100 - pc_diff_bw)) + "%, which is less " +
               "than 20% defined on the KPI")
 
     print
-    print ("The following metrics are not part of the KPI and " + \
+    print ("The following metrics are not part of the KPI and " +
            "are shown for informational purposes only")
     print(GREEN +
           "INFO: " +
@@ -770,7 +834,81 @@ def nsd_KPI(min_nsd_throughput,
           "INFO: " +
           NOCOLOR +
           "The standard deviation throughput value is " + str(stddev_bw))
-
+    for host in nsd_lat_dict.keys():
+        print(GREEN +
+              "INFO: " +
+              NOCOLOR +
+              "The average NSD latency for " +
+              str(host) +
+              " is " +
+              str(nsd_lat_dict[host]) +
+              " msec")
+    for host in nsd_std_dict.keys():
+        print(GREEN +
+              "INFO: " +
+              NOCOLOR +
+              "The standard deviation of NSD latency for " +
+              str(host) +
+              " is " +
+              str(nsd_std_dict[host]) +
+              " msec")
+    for host in nsd_rxe_dict.keys():
+        print(GREEN +
+              "INFO: " +
+              NOCOLOR +
+              "The packet Rx error count for throughput test on " +
+              str(host) +
+              " is equal to " +
+              str(nsd_rxe_dict[host]) +
+              " packet[s]")
+    for host in nsd_txe_dict.keys():
+        print(GREEN +
+              "INFO: " +
+              NOCOLOR +
+              "The packet Tx error count for throughput test on " +
+              str(host) +
+              " is equal to " +
+              str(nsd_txe_dict[host]) +
+              " packet[s]")
+    for host in nsd_rtr_dict.keys():
+        print(GREEN +
+              "INFO: " +
+              NOCOLOR +
+              "The packet retransmit count for throughput test on " +
+              str(host) +
+              " is equal to " +
+              str(nsd_rtr_dict[host]) +
+              " packet[s]")
+    packets_rxe = 0
+    for host in nsd_rxe_m2m_d.keys():
+        packets_rxe = packets_rxe + nsd_rxe_m2m_d[host]
+    print(GREEN +
+          "INFO: " +
+          NOCOLOR +
+          "The packet Rx error count for throughput test on many to many" +
+          " is equal to " +
+          str(packets_rxe) +
+          " packet[s]")
+    packets_txe = 0
+    for host in nsd_txe_m2m_d.keys():
+        packets_txe = packets_txe + nsd_txe_m2m_d[host]
+    print(GREEN +
+          "INFO: " +
+          NOCOLOR +
+          "The packet Tx error count for throughput test on many to many" +
+          " is equal to " +
+          str(packets_txe) +
+          " packet[s]")
+    packets_rtr = 0
+    for host in nsd_rtr_m2m_d.keys():
+        packets_rtr = packets_rtr + nsd_rtr_m2m_d[host]
+    print(GREEN +
+          "INFO: " +
+          NOCOLOR +
+          "The packet retransmit count for throughput test many to many" +
+          " is equal to " +
+          str(packets_rtr) +
+          " packet[s]")
     return errors
 
 
@@ -784,6 +922,7 @@ def fping_KPI(
         max_max_latency,
         max_stddev_latency):
     errors = 0
+
     print("Results for ICMP latency test " + test_string + "")
     max_avg_latency_str = str(round(max_avg_latency, 2))
     max_max_latency_str = str(round(max_max_latency, 2))
@@ -911,6 +1050,7 @@ def test_ssh(hosts_dictionary):
             ssh_return_code = subprocess.call(['ssh',
                                                '-oStrictHostKeyChecking=no',
                                                '-oBatchMode=yes',
+                                               '-o ConnectTimeout=5',
                                                host,
                                                'uname'],
                                               stdout=DEVNULL,
@@ -937,23 +1077,13 @@ def test_ssh(hosts_dictionary):
     print
 
 
-def print_end_summary(s_avg_fp_err, a_avg_fp_err, a_nsd_err, lat_kpi_ok,
-    fping_kpi_ok, perf_kpi_ok, perf_rt_ok):
+def print_end_summary(a_avg_fp_err, a_nsd_err, lat_kpi_ok,
+                      fping_kpi_ok, perf_kpi_ok, perf_rt_ok):
     # End summary and say goodbye
     passed = True
     print
     print("The summary of this run:")
     print
-
-    if s_avg_fp_err > 0:
-        print(RED + "\tThe 1:1 ICMP latency test failed " +
-              str(s_avg_fp_err) + " time[s]" + NOCOLOR)
-        passed = False
-    else:
-        print(
-            GREEN +
-            "\tThe 1:1 ICMP latency was successful in all nodes" +
-            NOCOLOR)
 
     if a_avg_fp_err > 0:
         print(RED + "\tThe 1:n ICMP latency test failed " +
@@ -993,7 +1123,7 @@ def print_end_summary(s_avg_fp_err, a_avg_fp_err, a_nsd_err, lat_kpi_ok,
             NOCOLOR)
 
     if lat_kpi_ok and fping_kpi_ok and perf_kpi_ok and perf_kpi_ok \
-        and perf_rt_ok and passed:
+       and perf_rt_ok and passed:
         print (
             GREEN +
             "OK: " +
@@ -1011,20 +1141,21 @@ def print_end_summary(s_avg_fp_err, a_avg_fp_err, a_nsd_err, lat_kpi_ok,
             NOCOLOR)
         valid_test = 5
     print
-    return (s_avg_fp_err + a_avg_fp_err + a_nsd_err + valid_test)
+    return (a_avg_fp_err + a_nsd_err + valid_test)
 
 
 def main():
     # Parsing input
     max_avg_latency, fping_count, perf_runtime, \
-        min_nsd_throughput = parse_arguments()
+        min_nsd_throughput, cli_hosts, hosts_dictionary = parse_arguments()
     max_max_latency = max_avg_latency * 2
     max_stddev_latency = max_avg_latency / 3
 
     # JSON loads
     os_dictionary = load_json("supported_OS.json")
     packages_dictionary = load_json("packages.json")
-    hosts_dictionary = load_json("hosts.json")
+    if not cli_hosts:
+        hosts_dictionary = load_json("hosts.json")
 
     # Check hosts are IP addresses
     check_hosts_are_ips(hosts_dictionary)
@@ -1037,7 +1168,7 @@ def main():
     estimated_runtime_str = str(
         estimate_runtime(hosts_dictionary, fping_count, perf_runtime))
     show_header(KOET_VERSION, json_version, estimated_runtime_str,
-        max_avg_latency, fping_count, min_nsd_throughput, perf_runtime)
+                max_avg_latency, fping_count, min_nsd_throughput, perf_runtime)
 
     # Checks
     # Check OS
@@ -1047,7 +1178,7 @@ def main():
         check_os_redhat(os_dictionary)
     else:
         sys.exit(RED + "QUIT: " + NOCOLOR +
-                 "cannot determine Linux distribution\n")
+                 "this is not a supported Linux distribution for this tool\n")
 
     # Check SSH
     test_ssh(hosts_dictionary)
@@ -1055,34 +1186,28 @@ def main():
     # Check packages are installed
     host_packages_check(hosts_dictionary, packages_dictionary)
 
+    # Check TCP port 6668 is not in use. Limited from view of this host
+    check_tcp_port_free(hosts_dictionary, 6668)
+
     # Run
     logdir = create_log_dir()
     latency_test(hosts_dictionary, logdir, fping_count)
-    throughput_json_files_list = throughput_test(hosts_dictionary,
-                                                 logdir, perf_runtime)
+    many2many_clients = throughput_test(hosts_dictionary,
+                                        logdir, perf_runtime)
 
     # Load results
-    single_fping_dictionary, single_fping_dictionary_max, \
-        single_fping_dictionary_min, single_fping_dictionary_stddev = \
-        load_single_fping(logdir,
-                          hosts_dictionary)
     all_fping_dictionary, all_fping_dictionary_max, all_fping_dictionary_min, \
         all_fping_dictionary_stddev = load_multiple_fping(logdir,
                                                           hosts_dictionary)
-    throughput_dict, pc_diff_bw, max_bw, min_bw, mean_bw, stddev_bw = \
-        load_throughput_tests(logdir, hosts_dictionary)
+    throughput_dict, nsd_lat_dict, nsd_std_dict, pc_diff_bw, max_bw, min_bw, \
+        mean_bw, stddev_bw, nsd_rxe_dict, nsd_rxe_m2m_d, nsd_txe_dict, \
+        nsd_txe_m2m_d, nsd_rtr_dict, nsd_rtr_m2m_d = load_throughput_tests(
+                                                        logdir,
+                                                        hosts_dictionary,
+                                                        many2many_clients)
 
     # Compare againsts KPIs
     print
-    single_avg_fping_errors = fping_KPI(
-        single_fping_dictionary,
-        single_fping_dictionary_max,
-        single_fping_dictionary_min,
-        single_fping_dictionary_stddev,
-        "1:1",
-        max_avg_latency,
-        max_max_latency,
-        max_stddev_latency)
     all_avg_fping_errors = fping_KPI(
         all_fping_dictionary,
         all_fping_dictionary_max,
@@ -1092,15 +1217,17 @@ def main():
         max_avg_latency,
         max_max_latency,
         max_stddev_latency)
-    all_nsd_errors = nsd_KPI(min_nsd_throughput, throughput_dict,
-                             pc_diff_bw, max_bw, min_bw, mean_bw, stddev_bw)
+    all_nsd_errors = nsd_KPI(min_nsd_throughput, throughput_dict, nsd_lat_dict,
+                             nsd_std_dict, pc_diff_bw, max_bw, min_bw,
+                             mean_bw, stddev_bw, nsd_rxe_dict, nsd_rxe_m2m_d,
+                             nsd_txe_dict, nsd_txe_m2m_d, nsd_rtr_dict,
+                             nsd_rtr_m2m_d)
 
     # Exit protocol
     lat_kpi_ok, fping_kpi_ok, perf_kpi_ok, perf_rt_ok = check_kpi_is_ok(
         max_avg_latency, fping_count, min_nsd_throughput, perf_runtime)
     DEVNULL.close()
     return_code = print_end_summary(
-        single_avg_fping_errors,
         all_avg_fping_errors,
         all_nsd_errors,
         lat_kpi_ok,
