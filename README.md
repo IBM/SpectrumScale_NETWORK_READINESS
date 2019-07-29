@@ -100,7 +100,7 @@ Welcome to KOET, version 1.1
 
 JSON files versions:
         supported OS:           1.1
-        packages:               1.1
+        packages:               1.0
 
 Please use https://github.com/IBM/SpectrumScaleTools  to get latest versions and report issues about KOET.
 
@@ -131,103 +131,117 @@ The following is the output of a successful run. Please notice that the output i
 ```
 OK: Red Hat Enterprise Linux Server 7.6 is a supported OS for this tool
 
-OK: SSH with node 10.10.16.17 works
-OK: SSH with node 10.10.16.16 works
-OK: SSH with node 10.10.16.15 works
-OK: SSH with node 10.10.16.13 works
-OK: SSH with node 10.10.16.10 works
-OK: SSH with node 10.10.11.35 works
+OK: SSH with node 10.10.12.93 works
+OK: SSH with node 10.10.12.92 works
+OK: SSH with node 10.10.12.95 works
+OK: SSH with node 10.10.12.94 works
 
 Checking packages install status:
 
-OK: on host 10.10.16.17 the fping installation status is as expected
-OK: on host 10.10.16.17 the gcc-c++ installation status is as expected
-OK: on host 10.10.16.17 the psmisc installation status is as expected
-OK: on host 10.10.16.16 the fping installation status is as expected
-OK: on host 10.10.16.16 the gcc-c++ installation status is as expected
-OK: on host 10.10.16.16 the psmisc installation status is as expected
-OK: on host 10.10.16.15 the fping installation status is as expected
-OK: on host 10.10.16.15 the gcc-c++ installation status is as expected
-OK: on host 10.10.16.15 the psmisc installation status is as expected
-OK: on host 10.10.16.13 the fping installation status is as expected
-OK: on host 10.10.16.13 the gcc-c++ installation status is as expected
-OK: on host 10.10.16.13 the psmisc installation status is as expected
-OK: on host 10.10.16.10 the fping installation status is as expected
-OK: on host 10.10.16.10 the gcc-c++ installation status is as expected
-OK: on host 10.10.16.10 the psmisc installation status is as expected
-OK: on host 10.10.11.35 the fping installation status is as expected
-OK: on host 10.10.11.35 the gcc-c++ installation status is as expected
-OK: on host 10.10.11.35 the psmisc installation status is as expected
-OK: TCP port 6668 seems to be not in use on 10.10.16.17
-OK: TCP port 6668 seems to be not in use on 10.10.16.16
-OK: TCP port 6668 seems to be not in use on 10.10.16.15
-OK: TCP port 6668 seems to be not in use on 10.10.16.13
-OK: TCP port 6668 seems to be not in use on 10.10.16.10
-OK: TCP port 6668 seems to be not in use on 10.10.11.35
+OK: on host 10.10.12.93 the psmisc installation status is as expected
+OK: on host 10.10.12.93 the fping installation status is as expected
+OK: on host 10.10.12.93 the gcc-c++ installation status is as expected
+OK: on host 10.10.12.92 the psmisc installation status is as expected
+OK: on host 10.10.12.92 the fping installation status is as expected
+OK: on host 10.10.12.92 the gcc-c++ installation status is as expected
+OK: on host 10.10.12.95 the psmisc installation status is as expected
+OK: on host 10.10.12.95 the fping installation status is as expected
+OK: on host 10.10.12.95 the gcc-c++ installation status is as expected
+OK: on host 10.10.12.94 the psmisc installation status is as expected
+OK: on host 10.10.12.94 the fping installation status is as expected
+OK: on host 10.10.12.94 the gcc-c++ installation status is as expected
+OK: on host 10.10.12.93 TCP port 6668 seems to be free
+OK: on host 10.10.12.92 TCP port 6668 seems to be free
+OK: on host 10.10.12.95 TCP port 6668 seems to be free
+OK: on host 10.10.12.94 TCP port 6668 seems to be free
 
-Starting ping run from 10.10.16.17 to all nodes
-Ping run from 10.10.16.17 to all nodes completed
+Starting ping run from 10.10.12.93 to all nodes
+Ping run from 10.10.12.93 to all nodes completed
 
-Starting ping run from 10.10.16.16 to all nodes
-Ping run from 10.10.16.16 to all nodes completed
+Starting ping run from 10.10.12.92 to all nodes
+Ping run from 10.10.12.92 to all nodes completed
 
-Starting ping run from 10.10.16.15 to all nodes
-Ping run from 10.10.16.15 to all nodes completed
+Starting ping run from 10.10.12.95 to all nodes
+Ping run from 10.10.12.95 to all nodes completed
 
-Starting ping run from 10.10.16.13 to all nodes
-Ping run from 10.10.16.13 to all nodes completed
+Starting ping run from 10.10.12.94 to all nodes
+Ping run from 10.10.12.94 to all nodes completed
 
-Starting ping run from 10.10.16.10 to all nodes
-Ping run from 10.10.16.10 to all nodes completed
+Starting throughput tests. Please be patient.
 
-Starting ping run from 10.10.11.35 to all nodes
-Ping run from 10.10.11.35 to all nodes completed
+Starting throughput run from 10.10.12.93 to all nodes
+Completed throughput run from 10.10.12.93 to all nodes
 
-Results for test 1:n
-OK: on host 10.10.16.17 the 1:n average latency is 0.55 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.17 the 1:n maximum latency is 0.98 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.16.17 the 1:n minimum latency is 0.27 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.17 the 1:n standard deviation of latency is 0.08 msec. Which is lower than the KPI of 0.33 msec
+Starting throughput run from 10.10.12.92 to all nodes
+Completed throughput run from 10.10.12.92 to all nodes
 
-OK: on host 10.10.16.16 the 1:n average latency is 0.49 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.16 the 1:n maximum latency is 0.98 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.16.16 the 1:n minimum latency is 0.27 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.16 the 1:n standard deviation of latency is 0.09 msec. Which is lower than the KPI of 0.33 msec
+Starting throughput run from 10.10.12.95 to all nodes
+Completed throughput run from 10.10.12.95 to all nodes
 
-OK: on host 10.10.16.15 the 1:n average latency is 0.6 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.15 the 1:n maximum latency is 1.55 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.16.15 the 1:n minimum latency is 0.27 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.15 the 1:n standard deviation of latency is 0.19 msec. Which is lower than the KPI of 0.33 msec
+Starting throughput run from 10.10.12.94 to all nodes
+Completed throughput run from 10.10.12.94 to all nodes
 
-OK: on host 10.10.16.13 the 1:n average latency is 0.56 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.13 the 1:n maximum latency is 1.55 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.16.13 the 1:n minimum latency is 0.25 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.13 the 1:n standard deviation of latency is 0.18 msec. Which is lower than the KPI of 0.33 msec
+Starting many to many nodes throughput test
+Completed Many to many nodes throughput test
 
-OK: on host 10.10.16.10 the 1:n average latency is 0.53 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.10 the 1:n maximum latency is 1.55 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.16.10 the 1:n minimum latency is 0.25 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.16.10 the 1:n standard deviation of latency is 0.17 msec. Which is lower than the KPI of 0.33 msec
+Results for ICMP latency test 1:n
+OK: on host 10.10.12.93 the 1:n average ICMP latency is 0.37 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 10.10.12.93 the 1:n maximum ICMP latency is 0.45 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 10.10.12.93 the 1:n minimum ICMP latency is 0.31 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 10.10.12.93 the 1:n standard deviation of ICMP latency is 0.02 msec. Which is lower than the KPI of 0.33 msec
 
-OK: on host 10.10.11.35 the 1:n average latency is 0.52 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.11.35 the 1:n maximum latency is 1.55 msec. Which is lower than the KPI of 2.0 msec
-OK: on host 10.10.11.35 the 1:n minimum latency is 0.25 msec. Which is lower than the KPI of 1.0 msec
-OK: on host 10.10.11.35 the 1:n standard deviation of latency is 0.16 msec. Which is lower than the KPI of 0.33 msec
+OK: on host 10.10.12.92 the 1:n average ICMP latency is 0.27 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 10.10.12.92 the 1:n maximum ICMP latency is 0.44 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 10.10.12.92 the 1:n minimum ICMP latency is 0.17 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 10.10.12.92 the 1:n standard deviation of ICMP latency is 0.09 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 10.10.12.95 the 1:n average ICMP latency is 0.26 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 10.10.12.95 the 1:n maximum ICMP latency is 0.41 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 10.10.12.95 the 1:n minimum ICMP latency is 0.13 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 10.10.12.95 the 1:n standard deviation of ICMP latency is 0.08 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 10.10.12.94 the 1:n average ICMP latency is 0.26 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 10.10.12.94 the 1:n maximum ICMP latency is 0.44 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 10.10.12.94 the 1:n minimum ICMP latency is 0.17 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 10.10.12.94 the 1:n standard deviation of ICMP latency is 0.09 msec. Which is lower than the KPI of 0.33 msec
 
 Results for throughput test
-OK: on host 10.10.16.17 the throughput test result is 2354 MB/sec. Which is more than the KPI of 2000 MB/sec
-OK: on host 10.10.16.16 the throughput test result is 2389 MB/sec. Which is more than the KPI of 2000 MB/sec
-OK: on host 10.10.16.15 the throughput test result is 2312 MB/sec. Which is more than the KPI of 2000 MB/sec
-OK: on host 10.10.16.13 the throughput test result is 2392 MB/sec. Which is more than the KPI of 2000 MB/sec
-OK: on host 10.10.16.10 the throughput test result is 2466 MB/sec. Which is more than the KPI of 2000 MB/sec
-OK: on host 10.10.11.35 the throughput test result is 2401 MB/sec. Which is more than the KPI of 2000 MB/sec
-OK: the difference of bandwidth between nodes is 10.16 which is less than 20% defined on the KPI
+OK: on host 10.10.12.93 the throughput test result is 2354 MB/sec. Which is more than the KPI of 2000 MB/sec
+OK: on host 10.10.12.92 the throughput test result is 2389 MB/sec. Which is more than the KPI of 2000 MB/sec
+OK: on host 10.10.12.95 the throughput test result is 2312 MB/sec. Which is more than the KPI of 2000 MB/sec
+OK: on host 10.10.12.94 the throughput test result is 2392 MB/sec. Which is more than the KPI of 2000 MB/sec
+OK: the difference of bandwidth between nodes is 10.16% which is less than 20% defined on the KPI
 
 The following metrics are not part of the KPI and are shown for informational purposes only
 INFO: The maximum throughput value is 2466.0
 INFO: The minimum throughput value is 2312.0
 INFO: The mean throughput value is 2385.67
 INFO: The standard deviation throughput value is 51.32
+INFO: The average NSD latency for 10.10.12.93 is 117.172 msec
+INFO: The average NSD latency for 10.10.12.92 is 19.0734 msec
+INFO: The average NSD latency for all at the same time is 11.5054 msec
+INFO: The average NSD latency for 10.10.12.95 is 16.941 msec
+INFO: The average NSD latency for 10.10.12.94 is 16.8137 msec
+INFO: The standard deviation of NSD latency for 10.10.12.93 is 5.46121 msec
+INFO: The standard deviation of NSD latency for 10.10.12.92 is 18.9215 msec
+INFO: The standard deviation of NSD latency for all at the same time is 20.145 msec
+INFO: The standard deviation of NSD latency for 10.10.12.95 is 16.8196 msec
+INFO: The standard deviation of NSD latency for 10.10.12.94 is 16.8328 msec
+INFO: The packet Rx error count for throughput test on 10.10.12.93 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 10.10.12.92 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 10.10.12.95 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 10.10.12.94 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 10.10.12.93 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 10.10.12.92 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 10.10.12.95 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 10.10.12.94 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 10.10.12.93 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 10.10.12.92 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 10.10.12.95 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 10.10.12.94 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on many to many is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on many to many is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test many to many is equal to 0 packet[s]
 
 The summary of this run:
 
