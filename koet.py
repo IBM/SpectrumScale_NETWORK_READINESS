@@ -35,7 +35,7 @@ GIT_URL = "https://github.com/IBM/SpectrumScale_NETWORK_READINESS"
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.1"
+KOET_VERSION = "1.2"
 
 
 def load_json(json_file_str):
@@ -48,6 +48,19 @@ def load_json(json_file_str):
     except Exception:
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "Cannot open JSON file: " + json_file_str)
+
+
+def write_json_file_from_dictionary(hosts_dictionary, json_file_str):
+    #We are going to generate or overwrite the hosts JSON file
+    try:
+        with open(json_file_str, "w") as json_file:
+            json.dump(hosts_dictionary, json_file)
+            print(GREEN + "OK: " + NOCOLOR + "JSON file: " + json_file_str +
+                  " [over]written")
+
+    except Exception:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "Cannot write JSON file: " + json_file_str)
 
 
 def estimate_runtime(hosts_dictionary, fp_count, perf_runtime):
@@ -122,6 +135,14 @@ def parse_arguments():
         type=int,
         default=1200)
 
+    parser.add_argument(
+        '--save-hosts',
+        action='store_true',
+        dest='save_hosts',
+        help='[over]writes hosts.json with the hosts passed with ' +
+        '--hosts. It does not prompt for confirmation when overwriting',
+        default=False)
+
     parser.add_argument('-v', '--version', action='version',
                         version='KOET ' + KOET_VERSION)
     args = parser.parse_args()
@@ -150,9 +171,14 @@ def parse_arguments():
         except Exception:
             sys.exit(RED + "QUIT: " + NOCOLOR +
                      "hosts parameter is not on CSV format")
+
+    if args.save_hosts and not cli_hosts:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "cannot generate hosts file if hosts not passed with --hosts")
+
     return (round(args.max_avg_latency, 2), args.fping_count,
             args.perf_runtime, args.perf_throughput,
-            cli_hosts, hosts_dictionary)
+            cli_hosts, hosts_dictionary, args.save_hosts)
 
 
 def check_kpi_is_ok(max_avg_latency, fping_count, perf_bw, perf_rt):
@@ -1146,8 +1172,8 @@ def print_end_summary(a_avg_fp_err, a_nsd_err, lat_kpi_ok,
 
 def main():
     # Parsing input
-    max_avg_latency, fping_count, perf_runtime, \
-        min_nsd_throughput, cli_hosts, hosts_dictionary = parse_arguments()
+    max_avg_latency, fping_count, perf_runtime, min_nsd_throughput, \
+         cli_hosts, hosts_dictionary, save_hosts = parse_arguments()
     max_max_latency = max_avg_latency * 2
     max_stddev_latency = max_avg_latency / 3
 
@@ -1169,6 +1195,10 @@ def main():
         estimate_runtime(hosts_dictionary, fping_count, perf_runtime))
     show_header(KOET_VERSION, json_version, estimated_runtime_str,
                 max_avg_latency, fping_count, min_nsd_throughput, perf_runtime)
+
+    #JSON hosts write
+    if save_hosts:
+        write_json_file_from_dictionary(hosts_dictionary, "hosts.json")
 
     # Checks
     # Check OS

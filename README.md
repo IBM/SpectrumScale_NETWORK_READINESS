@@ -6,6 +6,17 @@ Note:
 **You need to first populate the hosts.json file with the IP addresses of the nodes to participate in the test.  Node names are not allowed.
 Alternatively, you can pass the hosts as CSV string with a parameter**
 
+So to run the test with a JSON file already existing:
+
+```
+# ./koet.py
+```
+
+To run the test without a JSON file already existing and generating one for future runs:
+
+```
+# ./koet.py --hosts 10.10.12.92,10.10.12.93,10.10.12.94,10.10.12.95 --save-hosts
+```
 This test can require a long time to execute, depending on the number of nodes. This tool will display an estimated  runtime at startup.
 
 Remarks:
@@ -19,7 +30,7 @@ Remarks:
   - The number of hosts must be between 4 and 32, inclusive.
   - This tool generates a log directory with all the raw data output for future comparisons
   - This tool returns 0 if all tests are passed in all nodes, and returns an integer > 0 if any errors are detected.
-  - There is not RDMA support on throughput test at this time.
+  - There is not RDMA support on throughput test at this time. To bypass this until we add the RDMA you need to add an temporary IP using IPoIB.
   - TCP port 6668 needs to be reachable and not in use in all nodes.
   - This tool needs to be run on a local filesystem.
 
@@ -35,7 +46,7 @@ Usage statement:
 ```
 # ./koet.py -h
 usage: koet.py [-h] [-l KPI_LATENCY] [-c FPING_COUNT] [--hosts HOSTS_CSV]
-               [-m KPI_THROUGHPUT] [-p PERF_RUNTIME] [-v]
+               [-m KPI_THROUGHPUT] [-p PERF_RUNTIME] [--save-hosts] [-v]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -46,7 +57,7 @@ optional arguments:
                         The number of fping counts to run per node and test.
                         The value has to be at least 2 seconds.The minimum
                         required value for certification is 500
-  --hosts HOSTS_CSV     IP addreses of hosts on CSV format.Using this
+  --hosts HOSTS_CSV     IP addreses of hosts on CSV format. Using this
                         overrides the hosts.json file.
   -m KPI_THROUGHPUT, --min_throughput KPI_THROUGHPUT
                         The minimum MB/sec required to pass the test. The
@@ -55,6 +66,9 @@ optional arguments:
                         The seconds of nsdperf runtime per test. The value has
                         to be at least 10 seconds.The minimum required value
                         for certification is 1200
+  --save-hosts          [over]writes hosts.json with the hosts passed with
+                        --hosts. It does not prompt for confirmation when
+                        overwriting
   -v, --version         show program's version number and exit
 ```
 
@@ -62,7 +76,7 @@ An output example:
 ```
 # ./koet.py
 
-Welcome to KOET, version 1.1
+Welcome to KOET, version 1.2
 
 JSON files versions:
 	supported OS:		1.1
@@ -96,11 +110,11 @@ At this point you can see the estimated runtime, consider using screen or alike.
 ```
 # ./koet.py -l 1.5 -c 100 -p 10 - m 100
 
-Welcome to KOET, version 1.1
+Welcome to KOET, version 1.2
 
 JSON files versions:
         supported OS:           1.1
-        packages:               1.0
+        packages:               1.1
 
 Please use https://github.com/IBM/SpectrumScaleTools  to get latest versions and report issues about KOET.
 

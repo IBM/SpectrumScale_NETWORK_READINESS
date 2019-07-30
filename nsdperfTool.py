@@ -238,13 +238,13 @@ def getNetData(allNodes):
         # TODO
         netData[node] = {}
         retransInfo = chkcmd(
-            "%s %s netstat -s | grep \"segments retransmited\"" % (ssh, node))
+            "%s %s nstat -az TcpRetransSegs" % (ssh, node))
         try:
             netData[node]["retransmit"] = re.search(
-                r"(\d+) segments retransmited", retransInfo).group(1)
+                r"TcpRetransSegs *(\d+)", retransInfo).group(1)
         except Exception:
-            halt("Error, cannot match for retransmit data in \"netstat -s\" "
-                 "output on node %s" % (node))
+            halt("Error, cannot match for retransmit data in "
+                 "\"nstat -az TcpRetransSegs\" output on node %s" % (node))
         ipLinkInfo = chkcmd(
             "%s %s \"ip -s link show %s\"" % (ssh, node, netDev[node]))
         ipLinkFormat = r"RX: bytes  packets  errors  dropped overrun mcast" \
