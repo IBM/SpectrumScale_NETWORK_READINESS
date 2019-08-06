@@ -16,6 +16,16 @@ import operator
 from math import sqrt, ceil
 from functools import reduce
 
+try:
+    raw_input      # Python 2
+    PYTHON3 = False
+except NameError:  # Python 3
+    raw_input = input
+    PYTHON3 = True
+
+if PYTHON3:
+    import statistics
+
 # Colorful constants
 RED = '\033[91m'
 GREEN = '\033[92m'
@@ -35,7 +45,7 @@ GIT_URL = "https://github.com/IBM/SpectrumScale_NETWORK_READINESS"
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.2"
+KOET_VERSION = "1.3"
 
 
 def load_json(json_file_str):
@@ -211,20 +221,20 @@ def show_header(koet_h_version, json_version,
                 fping_count, perf_throughput, perf_runtime):
     # Say hello and give chance to disagree
     while True:
-        print
+        print("")
         print(GREEN + "Welcome to KOET, version " + koet_h_version + NOCOLOR)
-        print
+        print("")
         print("JSON files versions:")
         print("\tsupported OS:\t\t" + json_version['supported_OS'])
         print("\tpackages: \t\t" + json_version['packages'])
-        print
+        print("")
         print("Please use " + GIT_URL +
               " to get latest versions and report issues about this tool.")
-        print
+        print("")
         print(
             "The purpose of KOET is to obtain IPv4 network metrics " +
             "for a number of nodes.")
-        print
+        print("")
         lat_kpi_ok, fping_kpi_ok, perf_kpi_ok, perf_rt_ok = check_kpi_is_ok(
             max_avg_latency, fping_count, perf_throughput, perf_runtime)
         if lat_kpi_ok:
@@ -238,7 +248,7 @@ def show_header(koet_h_version, json_version,
                 "The latency KPI value of " +
                 str(max_avg_latency) +
                 " msec is too high to certify the environment")
-        print
+        print("")
         if fping_kpi_ok:
             print(
                 GREEN +
@@ -255,7 +265,7 @@ def show_header(koet_h_version, json_version,
                 str(fping_count) +
                 " ping per test and node is not enough " +
                 "to certify the environment")
-        print
+        print("")
         if perf_kpi_ok:
             print(
                 GREEN +
@@ -271,7 +281,7 @@ def show_header(koet_h_version, json_version,
                 "The throughput value of " +
                 str(perf_throughput) +
                 " MB/sec is not enough to certify the environment")
-        print
+        print("")
         if perf_rt_ok:
             print(
                 GREEN +
@@ -288,22 +298,22 @@ def show_header(koet_h_version, json_version,
                 str(perf_runtime) +
                 " second per test and node is not enough " +
                 "to certify the environment")
-        print
+        print("")
         print(
             YELLOW +
             "It requires remote ssh passwordless between all nodes for user " +
             "root already configured" +
             NOCOLOR)
-        print
+        print("")
         print(YELLOW + "This test run estimation is " +
               estimated_runtime_str + " minutes" + NOCOLOR)
-        print
+        print("")
         print(
             RED +
             "This software comes with absolutely no warranty of any kind. " +
             "Use it at your own risk" +
             NOCOLOR)
-        print
+        print("")
         print(
             RED +
             "NOTE: The bandwidth numbers shown in this tool are for a very " +
@@ -314,14 +324,14 @@ def show_header(koet_h_version, json_version,
             "They do not necessarily reflect the numbers you would see with " +
             "Spectrum Scale and your particular workload" +
             NOCOLOR)
-        print
+        print("")
         run_this = raw_input("Do you want to continue? (y/n): ")
         if run_this.lower() == 'y':
             break
         if run_this.lower() == 'n':
             print
             sys.exit("Have a nice day! Bye.\n")
-    print
+    print("")
 
 
 def check_os_redhat(os_dictionary):
@@ -341,7 +351,7 @@ def check_os_redhat(os_dictionary):
             print
     except Exception:
         sys.exit(error_message)
-        print
+        print("")
 
 
 def get_json_versions(os_dictionary, packages_dictionary):
@@ -433,7 +443,7 @@ def host_packages_check(hosts_dictionary, packages_dictionary):
     # data ont eh JSON
     errors = 0
     print("Checking packages install status:")
-    print
+    print("")
     for host in hosts_dictionary.keys():
         for rpm_package in packages_dictionary.keys():
             if rpm_package != "json_version":
@@ -524,7 +534,7 @@ def latency_test(hosts_dictionary, logdir, fping_count):
         hosts_fping = hosts_fping + host + " "
 
     for srchost in hosts_dictionary.keys():
-        print
+        print("")
         print("Starting ping run from " + srchost + " to all nodes")
         fileurl = os.path.join(logdir, "lat_" + srchost + "_" + "all")
         command = "ssh -o StrictHostKeyChecking=no " + srchost + \
@@ -552,10 +562,10 @@ def throughput_test_os(command, nsd_logfile):
 
 def throughput_test(hosts_dictionary, logdir, perf_runtime):
     throughput_json_files_list = []
-    print
+    print("")
     print("Starting throughput tests. Please be patient.")
     for client in hosts_dictionary.keys():
-        print
+        print("")
         print("Starting throughput run from " + client + " to all nodes")
         server_hosts_dictionary = dict(hosts_dictionary)
         del server_hosts_dictionary[client]
@@ -571,11 +581,16 @@ def throughput_test(hosts_dictionary, logdir, perf_runtime):
         copyfile(logdir + "/nsdperfResult.json", logdir + "/nsd_" +
                  client + ".json")
         print("Completed throughput run from " + client + " to all nodes")
-    print
+    print("")
     print("Starting many to many nodes throughput test")
     # We run a mess run to catch few more issues
-    clients_nodes_d = dict(hosts_dictionary.items()[len(hosts_dictionary)/2:])
-    servers_nodes_d = dict(hosts_dictionary.items()[:len(hosts_dictionary)/2])
+    middle_index = int(len(hosts_dictionary)/2)
+    if PYTHON3:
+        clients_nodes_d = dict(list(hosts_dictionary.items())[middle_index:])
+        servers_nodes_d = dict(list(hosts_dictionary.items())[:middle_index])
+    else:
+        clients_nodes_d = dict(hosts_dictionary.items()[middle_index:])
+        servers_nodes_d = dict(hosts_dictionary.items()[:middle_index])
     clients_csv = (",".join(clients_nodes_d.keys()))
     servers_csv = (",".join(servers_nodes_d.keys()))
     command = "./nsdperfTool.py -t read -k 4194304 -b 4194304 " \
@@ -635,9 +650,12 @@ def stddev_list(list, mean):
     # We replace a timeout "-" for 1 sec latency
     list = [lat.replace('-', '1000.00') for lat in list]
     list = [float(lat) for lat in list]
-    stddev_lat = sqrt(float(
-        reduce(lambda x, y: x + y, map(
-            lambda x: (x - mean) ** 2, list))) / len(list))
+    if PYTHON3:
+        stddev_lat = statistics.stdev(list)
+    else:
+        stddev_lat = sqrt(float(
+            reduce(lambda x, y: x + y, map(
+                lambda x: (x - mean) ** 2, list))) / len(list))
     stddev_lat = Decimal(stddev_lat)
     stddev_lat = round(stddev_lat, 2)
     return stddev_lat
@@ -754,7 +772,7 @@ def load_multiple_fping(logdir, hosts_dictionary):
     for srchost in hosts_dictionary.keys():
         fileurl = os.path.join(logdir, "lat_" + srchost + "_all")
         file_exists(fileurl)
-        logfping = open(fileurl, 'r', 0)
+        logfping = open(fileurl, 'r')
         for rawfping in logfping:
             hostIP = rawfping.split(':')[0]
             hostIP = hostIP.rstrip(' ')
@@ -841,8 +859,8 @@ def nsd_KPI(min_nsd_throughput,
               "values is " + str(abs(100 - pc_diff_bw)) + "%, which is less " +
               "than 20% defined on the KPI")
 
-    print
-    print ("The following metrics are not part of the KPI and " +
+    print("")
+    print("The following metrics are not part of the KPI and " +
            "are shown for informational purposes only")
     print(GREEN +
           "INFO: " +
@@ -1065,7 +1083,7 @@ def fping_KPI(
                   " msec. Which is lower than the KPI of " +
                   max_stddev_latency_str +
                   " msec")
-        print
+        print("")
 
     return errors  # Use this to give number of nodes is not exact in all cases
 
@@ -1100,16 +1118,16 @@ def test_ssh(hosts_dictionary):
                 "cannot run ssh to " +
                 host +
                 ". Please fix this problem before running this tool again")
-    print
+    print("")
 
 
 def print_end_summary(a_avg_fp_err, a_nsd_err, lat_kpi_ok,
                       fping_kpi_ok, perf_kpi_ok, perf_rt_ok):
     # End summary and say goodbye
     passed = True
-    print
+    print("")
     print("The summary of this run:")
-    print
+    print("")
 
     if a_avg_fp_err > 0:
         print(RED + "\tThe 1:n ICMP latency test failed " +
@@ -1130,10 +1148,10 @@ def print_end_summary(a_avg_fp_err, a_nsd_err, lat_kpi_ok,
             GREEN +
             "\tThe 1:n throughput test was successful in all nodes" +
             NOCOLOR)
-    print
+    print("")
 
     if passed:
-        print (
+        print(
             GREEN +
             "OK: " +
             NOCOLOR +
@@ -1150,7 +1168,7 @@ def print_end_summary(a_avg_fp_err, a_nsd_err, lat_kpi_ok,
 
     if lat_kpi_ok and fping_kpi_ok and perf_kpi_ok and perf_kpi_ok \
        and perf_rt_ok and passed:
-        print (
+        print(
             GREEN +
             "OK: " +
             NOCOLOR +
@@ -1166,7 +1184,7 @@ def print_end_summary(a_avg_fp_err, a_nsd_err, lat_kpi_ok,
             "You cannot proceed with the next steps" +
             NOCOLOR)
         valid_test = 5
-    print
+    print("")
     return (a_avg_fp_err + a_nsd_err + valid_test)
 
 
@@ -1237,7 +1255,7 @@ def main():
                                                         many2many_clients)
 
     # Compare againsts KPIs
-    print
+    print("")
     all_avg_fping_errors = fping_KPI(
         all_fping_dictionary,
         all_fping_dictionary_max,
@@ -1264,7 +1282,7 @@ def main():
         fping_kpi_ok,
         perf_kpi_ok,
         perf_rt_ok)
-    print
+    print("")
     return return_code
 
 

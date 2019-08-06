@@ -14,3 +14,6 @@ Changelog:
 - 1.2:
     - hosts.json can now we generated from cli input
     - moved from net-tools to iproute and added check for it
+
+- 1.3
+    - Initial implementation to run on both python3 and python2
