@@ -45,7 +45,7 @@ GIT_URL = "https://github.com/IBM/SpectrumScale_NETWORK_READINESS"
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.3"
+KOET_VERSION = "1.4"
 
 
 def load_json(json_file_str):
@@ -59,6 +59,17 @@ def load_json(json_file_str):
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "Cannot open JSON file: " + json_file_str)
 
+
+def json_file_loads(json_file_str):
+    #We try to load the JSON and return the success of failure
+    try:
+        with open(json_file_str, "r") as json_file_test:
+            json_variable = json.load(json_file_test)
+            json_file_test.close()
+            json_loads = True
+    except Exception:
+        json_loads = False
+    return json_loads
 
 def write_json_file_from_dictionary(hosts_dictionary, json_file_str):
     #We are going to generate or overwrite the hosts JSON file
@@ -711,12 +722,35 @@ def load_throughput_tests(logdir, hosts_dictionary, many2many_clients):
     for host in hosts_dictionary.keys():
         fileurl = logdir + "/nsd_" + host + ".json"
         file_exists(fileurl)
-        throughput_json_files_list.append(fileurl)
-        file_host_dict.update({fileurl: host})
+        #Lets do a load to check it is a proper file
+        json_loads = json_file_loads(fileurl)
+        if json_loads:
+            throughput_json_files_list.append(fileurl)
+            file_host_dict.update({fileurl: host})
+        else:
+            print(RED +
+                  "ERROR: " +
+                  NOCOLOR +
+                  "cannot load JSON for host " +
+                  host +
+                  ". We are going to ignore this host on the results")
     # We append the mess run
     mess_file_url = logdir + "/nsd_mess.json"
-    throughput_json_files_list.append(mess_file_url)
-    file_host_dict.update({mess_file_url: "all at the same time"})
+    #Lets do a load to check it is a proper file
+    json_loads = json_file_loads(mess_file_url)
+    if json_loads:
+            throughput_json_files_list.append(mess_file_url)
+            file_host_dict.update({mess_file_url: "all at the same time"})
+    else:
+        print(RED +
+              "ERROR: " +
+              NOCOLOR +
+              "cannot load JSON for all at the same time " +
+              ". We are going to ignore this test on the results")
+    # If the list is empty is that failed to load all JSON, no point to go
+    if len(throughput_json_files_list) == 0:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 " cannot load any throughput JSON file")
     nsd_json = load_json_files_into_dictionary(throughput_json_files_list)
     for file in throughput_json_files_list:
         # here we add the metrics we will proces later
