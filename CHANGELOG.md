@@ -19,4 +19,4 @@ Changelog:
     - Initial implementation to run on both python3 and python2
 
 - 1.4
-    - Added check for rare (not manage to reproduce in lab) case whre nsdperf fails to generate JSON
+    - Added check for rare (not manage to reproduce in lab) case where nsdperf fails to generate JSON
