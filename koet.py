@@ -567,8 +567,7 @@ def throughput_test_os(command, nsd_logfile):
         time.sleep(5)
     except BaseException:
         sys.exit(RED + "QUIT: " + NOCOLOR +
-                 "Throughput run from " + client + " to all nodes " +
-                 "failed unexpectedly\n")
+                 "Throughput run " + client + " failed unexpectedly\n")
 
 
 def throughput_test(hosts_dictionary, logdir, perf_runtime):
@@ -586,7 +585,7 @@ def throughput_test(hosts_dictionary, logdir, perf_runtime):
             "-R 256 -W 256 -T 256 -d " + logdir + " -s " + \
             server_csv_str + " -c " + client + " -l " + str(perf_runtime)
         nsd_logfile = open(logdir + "/nsdperfTool_log", "a")
-        throughput_test_os(command, nsd_logfile)
+        throughput_test_os(command, nsd_logfile, client)
         nsd_logfile.close()
         # Copy the file to avoid overwrite it
         copyfile(logdir + "/nsdperfResult.json", logdir + "/nsd_" +
@@ -608,7 +607,7 @@ def throughput_test(hosts_dictionary, logdir, perf_runtime):
         "-R 256 -W 256 -T 256 -d " + logdir + " -s " + \
         servers_csv + " -c " + clients_csv + " -l " + str(perf_runtime)
     nsd_logfile = open(logdir + "/nsdperfTool_log", "a")
-    throughput_test_os(command, nsd_logfile)
+    throughput_test_os(command, nsd_logfile, client)
     nsd_logfile.close()
     # Copy the file to avoid overwrite it
     copyfile(logdir + "/nsdperfResult.json", logdir + "/nsd_mess" + ".json")
