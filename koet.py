@@ -558,7 +558,7 @@ def latency_test(hosts_dictionary, logdir, fping_count):
         print("Ping run from " + srchost + " to all nodes completed")
 
 
-def throughput_test_os(command, nsd_logfile):
+def throughput_test_os(command, nsd_logfile, client):
     try:
         runperf = subprocess.Popen(shlex.split(command), stdout=nsd_logfile)
         runperf.wait()
