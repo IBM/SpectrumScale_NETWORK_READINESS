@@ -5,6 +5,7 @@
   See the README file for information about building and running
   this program.
 
+
   Changes in version 1.28:
 
     * Use a global table to hold pending replies.  The table is split into
@@ -191,7 +192,7 @@
 #include <rdma/rdma_cma.h>
 
 /* Maximum number of ibv_send_wr for RDMA read and write that can be
-   chained and posted to WQ */ 
+   chained and posted to WQ */
 #define MAX_RDMA_SEND_WR 32
 static int max_send_wr = MAX_RDMA_SEND_WR;
 #endif
@@ -278,7 +279,7 @@ typedef UInt32 TesterId;
 // Program version
 static const string version = "1.28";
 
-// Default port to use 
+// Default port to use
 static const int NSDPERF_PORT = 6668;
 
 // Default number of message worker threads
@@ -404,7 +405,7 @@ enum Atype
   AT_IPV6
 };
 
-  
+
 // Structure for holding an IPv4 or IPv6 address
 struct IpAddr
 {
@@ -539,7 +540,7 @@ public:
   TimeLine* getTimeLine();
 };
 
-  
+
 // Gather histogram of response times
 class Histogram
 {
@@ -567,14 +568,14 @@ public:
 };
 
 
-// Compare two histogram bucket entries by bucket value  
+// Compare two histogram bucket entries by bucket value
 struct BucketCmp
 {
   bool operator()(pair<HTime, UInt32> p1, pair<HTime, UInt32> p2) const
   { return p1.second < p2.second; }
 };
 
-  
+
 // Receive states of a connection
 enum RState
 {
@@ -582,7 +583,7 @@ enum RState
   rcv_header,
   rcv_data
 };
-  
+
 
 // Message type codes
 enum MType
@@ -615,7 +616,7 @@ enum MType
   mtIdlePct,            // Get idle CPU percentage from last test
   mtLast                // Highest message type number
 };
-  
+
 
 // An entry in the queue of waiters for exclusive use of a socket for sending
 struct InuseWaiter
@@ -632,7 +633,7 @@ struct InuseWaiter
   InuseWaiter(MType tmt, MsgId tmsgId, unsigned int tdatalen);
 };
 
-  
+
 // Function object to compare two InuseWaiter entries to determine which
 // has higher priority
 struct InuseCmp
@@ -703,7 +704,7 @@ struct RdmaPortInfo
   }
 };
 
-  
+
 // TCP connection
 class TcpConn
 {
@@ -778,7 +779,7 @@ public:
 #endif
 };
 
-  
+
 #ifdef RDMA
 // Unique key to locate TcpConn object for incoming RDMA connection
 // manager events.
@@ -855,7 +856,7 @@ public:
 };
 #endif // RDMA
 
-  
+
 // Target node for test
 struct Target
 {
@@ -894,7 +895,7 @@ struct SortedTarget
   }
 };
 
-  
+
 // Structure to hold received messages
 struct RcvMsg
 {
@@ -1007,7 +1008,7 @@ public:
 #endif // RDMA
 };
 
-  
+
 #ifdef RDMA
 /* An RDMA device (host adapter) */
 struct RdmaDevice
@@ -1083,7 +1084,7 @@ struct ReplyEntry
   ~ReplyEntry() {}
 };
 
-  
+
 // Test types
 enum TType
 {
@@ -1123,7 +1124,7 @@ struct TestReq
   }
 };
 
-  
+
 // An entry in the newSockets list of the receiver thread
 struct NewSock
 {
@@ -1132,7 +1133,7 @@ struct NewSock
   NewSock(Sock tsock, TcpConn *tconnP) : sock(tsock), connP(tconnP) {}
 };
 
-  
+
 // A receiver thread
 class Receiver : public Thread
 {
@@ -1173,7 +1174,7 @@ class Tester : public Thread
 {
   TestReq *reqP;
   TesterId testerId;
-  
+
 public:
   Tester() : reqP(NULL) {}
   virtual ~Tester() {}
@@ -1265,7 +1266,7 @@ static bool server = false;
 static bool useipv6 = false;
 static unsigned int nClients = 0;
 static int addrFamily;
-static int testTime = 10;        
+static int testTime = 10;
 static unsigned int buffsize = DEF_BUFFSIZE;
 static bool setMaxSend = false;
 static bool setBuffSize = false;
@@ -1319,7 +1320,7 @@ struct ReplyTabBucket
   ReplyTabBucket() : bucketHeadP(NULL), freeListP(NULL) {}
 };
 
-  
+
 // Table of pending replies.  This is split into multiple buckets with a
 // mutex for each one, since it is accessed by many threads at once.
 static const int nRtBuckets = 64;
@@ -2018,7 +2019,7 @@ struct CpuStats
   UInt64 total() { return user + system + idle + iowait + other; }
 };
 
-  
+
 // Get CPU utilization statistics.  Return false if not supported.
 static bool getStats(CpuStats *statsP)
 {
@@ -2069,7 +2070,7 @@ static bool getStats(CpuStats *statsP)
       gotit = true;
       break;
     }
-    
+
     // Older kernels didn't have the steal field
     n[7] = 0;
     if (sscanf(line.c_str(), "cpu %llu %llu %llu %llu %llu %llu %llu",
@@ -2331,7 +2332,7 @@ string IpAddr::toString() const
 #endif
   if (inet_ntop(getFamily(), &a, buf, sizeof(buf)) == NULL)
     Errorm("inet_ntop");
-  return buf;  
+  return buf;
 }
 
 
@@ -2339,7 +2340,7 @@ string IpAddr::toString() const
 // address and the specified port.  Return a pointer to the buffer.
 sockaddr *IpAddr::toSockaddr(UInt16 port, sockaddr_storage *sockBuffP) const
 {
-  union 
+  union
   {
     sockaddr_storage ss;
     sockaddr_in sin;
@@ -2423,7 +2424,7 @@ static void addReply(MsgId m, MsgRecord *mrP, TcpConn *connP)
   else
     reP = new ReplyEntry(m, mrP, connP);
   reP->reNextP = pendReplyTab[b].bucketHeadP;
-  pendReplyTab[b].bucketHeadP = reP;  
+  pendReplyTab[b].bucketHeadP = reP;
   thUnlock(&pendReplyTab[b].bucketMutex);
 }
 
@@ -2769,7 +2770,7 @@ static void rdmaShutdown()
 {
   if (!rdmaInitialized)
     return;
-  
+
   rdmaKillThreads();
   rdmaMemoryFree();
 
@@ -3012,7 +3013,7 @@ static string rdmaStart()
           }
           else
           {
-          
+
 #ifdef IPV6_SUPPORT
             struct sockaddr_storage saddr;
             struct sockaddr_in6 *sip6 =
@@ -3072,7 +3073,7 @@ static string rdmaStart()
     errmsg = "No RDMA ports found";
     goto exit;
   }
-  
+
   if (ioctl_sock > 0)
     close(ioctl_sock);
 
@@ -3258,7 +3259,7 @@ string RdmaConn::rdPrepClient(TcpConn *connP, RdmaPort *rportP,
   int accFlags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
     IBV_ACCESS_REMOTE_WRITE;
   int e;
-  
+
   if (useCM)
   {
     if (rdma_create_id(cmChan, &cmId, this, RDMA_PS_TCP) != 0)
@@ -3270,7 +3271,7 @@ string RdmaConn::rdPrepClient(TcpConn *connP, RdmaPort *rportP,
                           5000) != 0)
       Errorm("rdma_resolve_addr " << connP->destName() << " "
              << destPortInfoP->toString());
-    
+
     errmsg = rdCheckCMEvent("rdma_resolve_addr",
                             RDMA_CM_EVENT_ADDR_RESOLVED,
                             RDMA_CM_EVENT_ADDR_ERROR);
@@ -3308,7 +3309,7 @@ string RdmaConn::rdPrepClient(TcpConn *connP, RdmaPort *rportP,
   }
   else
     rdmaPortP = rportP;
-  
+
   // Set QP attributes
   RdmaDevice *pdevP = rdmaPortP->pdevP;
   pdevP->getQpAttributes(&qpIAttr, pdevP->createCQ(connP->getCnum()));
@@ -3378,7 +3379,7 @@ string RdmaConn::rdPrepClient(TcpConn *connP, RdmaPort *rportP,
     ostringstream os;
     if (maxInline <= MSG_HDRSIZE)
       os << "max_inline_data value of " << maxInline << " is too small";
-    else 
+    else
       os << "buffsize must be <= " << maxInline - MSG_HDRSIZE
          << " if sinline is on";
     return os.str();
@@ -3602,7 +3603,7 @@ string RdmaConn::rdPrepServer(RcvMsg *rmsgP, TcpConn *connP, DataBuff *dbP)
     ostringstream os;
     if (maxInline <= MSG_HDRSIZE)
       os << "max_inline_data value of " << maxInline << " is too small";
-    else 
+    else
       os << "buffsize must be <= " << maxInline - MSG_HDRSIZE
          << " if sinline is on";
     return os.str();
@@ -3735,7 +3736,7 @@ void RdmaConn::rdConnect(UInt32 qpnum, UInt32 maxQpRd, const char *whoP)
 }
 
 
-// Send RDMA disconnect request to connection manager 
+// Send RDMA disconnect request to connection manager
 void RdmaConn::rdDisconnectCM(string name)
 {
   if (cmId == NULL)
@@ -3766,7 +3767,7 @@ void RdmaConn::rdDisconnect()
       e = ibv_destroy_qp(qpP);
       if (e != 0)
       {
-        string strP = geterr(e); 
+        string strP = geterr(e);
         printf("rdDisconnect: ibv_destroy_qp for qpP 0x%llX failed with error %d\n",
                qpP, e);
         Error("ibv_destroy_qp failed: " << strP);
@@ -3940,7 +3941,7 @@ void RdmaConn::rdWrite(DataBuff *testBuffP, RdmaAddr raddr, UInt32 rlen,
     bytesLeft -= bytesThis;
     srvBuffP  += bytesThis;
     cliBuffP  += bytesThis;
-  } 
+  }
   rdSubBytes(rlen);
 }
 
@@ -4009,7 +4010,7 @@ void RdmaConn::rdRead(RdmaAddr raddr, UInt32 rlen, char *dataP,
       printf("rdRead: before post: tid %d opId %llu\n",
              pwaitP->tid, pwaitP->opId);
       thUnlock(&logMutex);
-    } 
+    }
     if (ibv_post_send(qp, &sr[0], &bad_wr) != 0)
       Errorm("ibv_post_send failed in rdRead");
     else
@@ -4020,7 +4021,7 @@ void RdmaConn::rdRead(RdmaAddr raddr, UInt32 rlen, char *dataP,
       printf("rdRead: after post tid %d opId %llu\n",
              pwaitP->tid, pwaitP->opId);
       thUnlock(&logMutex);
-    } 
+    }
 
     // Wait for RDMA receiver thread to notify us that operation is complete
     status = pwaitP->wait();
@@ -4030,7 +4031,7 @@ void RdmaConn::rdRead(RdmaAddr raddr, UInt32 rlen, char *dataP,
       printf("rdRead: after wait tid %d opId %llu status %d\n",
              pwaitP->tid, pwaitP->opId, pwaitP->status);
       thUnlock(&logMutex);
-    } 
+    }
     if (status != IBV_WC_SUCCESS)
     {
       printf("rdRead: error: tid %d opId %llu status %d %s ibv_wr_opcode %s srvBuffP start 0x%llX end 0x%llX cliBuffP start 0x%llX end 0x%llX len %u\n",
@@ -4051,7 +4052,7 @@ void RdmaConn::rdRead(RdmaAddr raddr, UInt32 rlen, char *dataP,
     bytesLeft -= bytesThis;
     srvBuffP  += bytesThis;
     cliBuffP  += bytesThis;
-  } 
+  }
 
   rdSubBytes(rlen);
 }
@@ -4154,7 +4155,7 @@ void RdmaConn::rdHandleCMEvent(rdma_cm_event *eventP)
   if (cmEventP != NULL)
     Error("CM event "<< rdmaCMEventToStr(eventP->event)
           << " received but event pointer was already set");
- 
+
   // Connect requests come in on the listen socket, and might not have a
   // thread waiting yet (the thread that gets the event is the mtRdmaConn
   // handler).  Store the incoming events in a table, using the unique key
@@ -4914,7 +4915,7 @@ static string mtToString(MType mt)
   return "??";
 }
 
-   
+
 // Compare two InuseWaiter entries to determine which has higher priority
 bool InuseCmp::operator()(const InuseWaiter *w1P, const InuseWaiter *w2P) const
 {
@@ -5101,7 +5102,7 @@ void TcpConn::connShutdown()
       riter = qP->begin();
       continue;
     }
-    
+
     RcvMsg *rmsgP = *riter;
     if (rmsgP->connP != this)
       ++riter;
@@ -5190,7 +5191,7 @@ Errno TcpConn::receiverEvent()
         err = recvMessage();
         if (err != E_OK)
           break;
-        
+
         // Message header format:
         //    UInt32 magic      Magic number, should be MSG_MAGIC
         //    UInt32 msgId      Message identifier
@@ -5230,7 +5231,7 @@ Errno TcpConn::receiverEvent()
         recvMsgP = NULL;
         recvState = rcv_idle;
         break;
-        
+
       default:
         Error("invalid receiver state");
     }
@@ -5650,7 +5651,7 @@ string TcpConn::rdmaClientConnect(const set<RdmaPortInfo> *remotePortsP)
         goto connComplete;
     }
   }
-  
+
 connComplete:
   if (nRconns == 0)
     errmsg = "No matching ports found for RDMA connection";
@@ -6941,7 +6942,7 @@ void RcvMsg::handleParms()
     if (laThreadP != NULL)
       laThreadP->updateSocksize();
   }
-  
+
 #ifdef RDMA
   // If any settings change which will affect RDMA connections (queue
   // sizes, memory allocation, etc.), shut down RDMA so that the
@@ -7048,7 +7049,7 @@ void RcvMsg::handleAlloc()
     for (worker = workerTab.begin(); worker != workerTab.end(); ++worker)
     {
       MsgWorker *w = *worker;
-      w->rtestBuff.initBuff(poolGet(buffsize), buffsize);    
+      w->rtestBuff.initBuff(poolGet(buffsize), buffsize);
       w->rtestBuff.fillBuff(randSeed());
       w->getRdmaBuff();
     }
@@ -7742,7 +7743,7 @@ int ListenAccept::threadBody()
   while (!quitflag)
   {
     if ((lsock = socket(addrFamily, SOCK_STREAM, 0)) == INVALID_SOCK)
-      Errorm("socket open"); 
+      Errorm("socket open");
 
     // Set to recycle addresses
     if ((setsockopt(lsock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) < 0)
@@ -8073,7 +8074,7 @@ string rdmaEventToStr(enum ibv_event_type ev)
   return "?";
 }
 
-   
+
 // RdmaAsync constructor
 RdmaAsync::RdmaAsync()
 {
@@ -8882,7 +8883,7 @@ static Errno doConnect()
     Log("No client nodes found");
     return E_INVAL;
   }
-  
+
   // Tell the server nodes to close any connections that they might have
   // had from previous sessions, where they were clients.
   for (snode = serverNodes.begin(); snode != serverNodes.end(); ++snode)
@@ -9508,9 +9509,9 @@ struct Command
   void (*cmdRtnP)(vector<string> *argsP);       // Routine to call
 };
 
-  
+
 // Valid commands
-static const Command cmdTable[] = 
+static const Command cmdTable[] =
 {
   { "hist",     2, histCmd },
   { "help",     1, helpCmd },
@@ -9542,7 +9543,7 @@ static const Command cmdTable[] =
   { "test",     1, testCmd },
   { "buffsize", 1, buffsizeCmd },
 };
-static const int nCommands = sizeof(cmdTable) / sizeof(struct Command);  
+static const int nCommands = sizeof(cmdTable) / sizeof(struct Command);
 
 
 // Handle SIGUSR1
@@ -9729,7 +9730,7 @@ int main(int argc, char *argvP[])
         useipv6 = true;
         break;
 
-      default:  
+      default:
         exit(EXIT_FAILURE);
         break;
     }
@@ -9767,7 +9768,7 @@ int main(int argc, char *argvP[])
     line += argvP[j];
   }
   splitCmd(line, &commands);
-  
+
   // Set up a signal handler for SIGUSR1
   struct sigaction sa;
   memset(&sa, 0, sizeof(sa));
@@ -9785,7 +9786,7 @@ int main(int argc, char *argvP[])
     rcvP->init();
     receiverTab.push_back(rcvP);
   }
-  nextReceiver = receiverTab.begin(); 
+  nextReceiver = receiverTab.begin();
   thInitMutex(&workerMutex);
   thInitCond(&workerCond);
   for (j = 0; j < nWorkers; j++)

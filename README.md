@@ -2,51 +2,58 @@
 This tool will run a network test across multiple nodes and compare the results against IBM Spectrum Scale Key Performance Indicators (KPI).
 This tool attempts to hide much of the complexity of running network measurement tools, and present the results in an easy to interpret way.
 
-Note:  
-**You need to first populate the hosts.json file with the IP addresses of the nodes to participate in the test.  Node names are not allowed.
-Alternatively, you can pass the hosts as CSV string with a parameter**
+**NOTE:** The IP addresses to be defined into the test should be the ones that would be part of the admin network on Spectrum Scale.
 
-So to run the test with a JSON file already existing:
+So to run the test with a JSON file already populated with the admin IP addresses: (look at the example already populated one)
 
 ```
 # ./koet.py
 ```
 
-To run the test without a JSON file already existing and generating one for future runs:
+To run a RDMA (testing the availability of ib0 and ib1 on all nodes) test with a JSON already populated:
+```
+# ./koet.py --rdma ib0,ib1
+```
+
+To run the test without a JSON file already populated with the admin IP addresses and generating one JSON for future runs:
 
 ```
 # ./koet.py --hosts 10.10.12.92,10.10.12.93,10.10.12.94,10.10.12.95 --save-hosts
 ```
-This test can require a long time to execute, depending on the number of nodes. This tool will display an estimated  runtime at startup.
+
+**NOTE:** This test can require a long time to execute, depending on the number of nodes. This tool will display an estimated  runtime at startup.
+
+**WARNING:** This is a network stress tool, hence it will stress the network. If you are using the network for some other service while running this tool you might feel service degradation. This tool, as stated on the license, it comes with no warranty of any kind.
 
 Remarks:
-  - This tool runs on RedHat 7.5/7.6 on x86_64 and ppc64le architectures. At this point all nodes within a test must be of the same architecture.
-  - Python 2.7.x is required, which is the default on Redhat 7.x systems.
+  - The host where this tool is locally run must be part of the testbed of hosts being tested
+  - This tool runs on RedHat 7.5/7.6 on x86_64 and ppc64le architectures.
   - Only Python standard libraries are used.
   - fping, gcc-c++ and psmisc must be installed on all nodes that participate in the test.  This tool will log an error if a required package is missing from any node.
   - SSH root passwordless access must be configured from the node that runs the tool to all the nodes that participate in the tests. This tool will log an error if any node does not meet this requirement.
-  - The minimum FPING_COUNT value for a valid test must be 500, and a minimum of 10 (defaults to 500).
-  - The minimum PERF_RUNTIME value for a valid test must be 1200, and a minimum of 30 (defaults to 1200).
-  - The number of hosts must be between 4 and 32, inclusive.
+  - The minimum FPING_COUNT value for a valid ECE test must be 500, and a minimum of 10 (defaults to 500).
+  - The minimum PERF_RUNTIME value for a valid ECE test must be 1200, and a minimum of 30 (defaults to 1200).
+  - The number of hosts must be between 2 and 64. The upper limit is the tested limit.
   - This tool generates a log directory with all the raw data output for future comparisons
   - This tool returns 0 if all tests are passed in all nodes, and returns an integer > 0 if any errors are detected.
-  - There is not RDMA support on throughput test at this time. To bypass this until we add the RDMA you need to add an temporary IP using IPoIB.
   - TCP port 6668 needs to be reachable and not in use in all nodes.
   - This tool needs to be run on a local filesystem.
+  - For RDMA tests all Mellanox ports in the system, regardless they are part of the test or not, must be on Infiniband mode, not on Ethernet mode
 
 KNOWN ISSUES:
-  - There are no known issues at this time. If you encounter problems please contact IBM support or open an issue in our repository (https://github.ibm.com/SpectrumScaleTools/ECE_NETWORK_READINESS/issues)
+  - There are no known issues at this time. If you encounter problems please contact open an issue in our repository (https://github.ibm.com/SpectrumScaleTools/ECE_NETWORK_READINESS/issues)
 
 TODO:
   - Add precompiled versions of throughput tool so no compiling is needed
-  - Add RDMA support to throughput test
   - Add an option to load previous test results and compare
+  - Test RedHat 7.7 and 8.0
 
 Usage statement:
 ```
 # ./koet.py -h
 usage: koet.py [-h] [-l KPI_LATENCY] [-c FPING_COUNT] [--hosts HOSTS_CSV]
-               [-m KPI_THROUGHPUT] [-p PERF_RUNTIME] [--save-hosts] [-v]
+               [-m KPI_THROUGHPUT] [-p PERF_RUNTIME] [--rdma PORTS_CSV]
+               [--rpm_check_disabled] [--save-hosts] [-v]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -57,15 +64,21 @@ optional arguments:
                         The number of fping counts to run per node and test.
                         The value has to be at least 2 seconds.The minimum
                         required value for certification is 500
-  --hosts HOSTS_CSV     IP addreses of hosts on CSV format. Using this
+  --hosts HOSTS_CSV     IP addresses of hosts on CSV format. Using this
                         overrides the hosts.json file.
   -m KPI_THROUGHPUT, --min_throughput KPI_THROUGHPUT
                         The minimum MB/sec required to pass the test. The
                         minimum required value for certification is 2000
   -p PERF_RUNTIME, --perf_runtime PERF_RUNTIME
                         The seconds of nsdperf runtime per test. The value has
-                        to be at least 10 seconds.The minimum required value
+                        to be at least 10 seconds. The minimum required value
                         for certification is 1200
+  --rdma PORTS_CSV      Enables RDMA and ports to be check on CSV format
+                        (ib0,ib1,...). Must be using OS device names, not mlx
+                        names.
+  --rpm_check_disabled  Disables the RPM prerequisites check. Use only if you
+                        are sure all required software is installed and no RPM
+                        were used to install the required prerequisites
   --save-hosts          [over]writes hosts.json with the hosts passed with
                         --hosts. It does not prompt for confirmation when
                         overwriting
@@ -74,13 +87,14 @@ optional arguments:
 
 An output example:
 ```
-# ./koet.py
+./koet.py
 
-Welcome to KOET, version 1.2
+Welcome to KOET, version 1.5
 
 JSON files versions:
-	supported OS:		1.1
+	supported OS:		1.2
 	packages: 		1.1
+	packages RDMA:		1.0
 
 Please use https://github.com/IBM/SpectrumScale_NETWORK_READINESS to get latest versions and report issues about this tool.
 
@@ -90,18 +104,18 @@ The latency KPI value of 1.0 msec is good to certify the environment
 
 The fping count value of 500 ping per test and node is good to certify the environment
 
-The throughput value of 600 MB/sec is good to certify the environment
+The throughput value of 2000 MB/sec is good to certify the environment
 
 The performance runtime value of 1200 second per test and node is good to certify the environment
 
 It requires remote ssh passwordless between all nodes for user root already configured
 
-This test run estimation is 850 minutes
+This test run estimation is 336 minutes
 
 This software comes with absolutely no warranty of any kind. Use it at your own risk
 
-NOTE: The bandwidth numbers shown in this tool are for a very specific test. It is not a storage becnhmark.
-They do not reflect that numbers you would see with  Spectrum Scale and your workload
+NOTE: The bandwidth numbers shown in this tool are for a very specific test. This is not a storage benchmark.
+They do not necessarily reflect the numbers you would see with Spectrum Scale and your particular workload
 
 Do you want to continue? (y/n):
 ```
@@ -140,7 +154,7 @@ They do not necessarily reflect that numbers you would see with Spectrum Scale a
 Do you want to continue? (y/n): y
 ```
 
-The following is the output of a successful run. Please notice that the output is colour coded.
+The following is the output of a successful run. Please notice that the output is color coded.
 
 ```
 OK: Red Hat Enterprise Linux Server 7.6 is a supported OS for this tool
@@ -261,6 +275,423 @@ The summary of this run:
 
         The 1:n fping average latency was successful in all
         The 1:n throughput test was successful in all nodes
+
+OK: All tests had been passed. You can proceed with the next steps
+```
+
+And RDMA successful run:
+
+```
+# ./koet.py --rdma ib0
+
+./koet.py
+
+Welcome to KOET, version 1.5
+
+JSON files versions:
+	supported OS:		1.2
+	packages: 		1.1
+	packages RDMA:		1.0
+
+Please use https://github.com/IBM/SpectrumScale_NETWORK_READINESS to get latest versions and report issues about this tool.
+
+The purpose of KOET is to obtain IPv4 network metrics for a number of nodes.
+
+The latency KPI value of 1.0 msec is good to certify the environment
+
+The fping count value of 500 ping per test and node is good to certify the environment
+
+The throughput value of 2000 MB/sec is good to certify the environment
+
+The performance runtime value of 1200 second per test and node is good to certify the environment
+
+It requires remote ssh passwordless between all nodes for user root already configured
+
+This test run estimation is 336 minutes
+
+This software comes with absolutely no warranty of any kind. Use it at your own risk
+
+NOTE: The bandwidth numbers shown in this tool are for a very specific test. This is not a storage benchmark.
+They do not necessarily reflect the numbers you would see with Spectrum Scale and your particular workload
+
+Do you want to continue? (y/n): y
+
+OK: Red Hat Enterprise Linux Server 7.6 is a supported OS for this tool
+
+OK: SSH with node 100.168.83.9 works
+OK: SSH with node 100.168.83.8 works
+OK: SSH with node 100.168.83.3 works
+OK: SSH with node 100.168.83.2 works
+OK: SSH with node 100.168.83.1 works
+OK: SSH with node 100.168.83.7 works
+OK: SSH with node 100.168.83.6 works
+OK: SSH with node 100.168.83.5 works
+OK: SSH with node 100.168.83.10 works
+OK: SSH with node 100.168.83.11 works
+OK: SSH with node 100.168.83.4 works
+
+Pre-flight generic checks:
+OK: on host 100.168.83.9 the iproute installation status is as expected
+OK: on host 100.168.83.9 the psmisc installation status is as expected
+OK: on host 100.168.83.9 the fping installation status is as expected
+OK: on host 100.168.83.9 the gcc-c++ installation status is as expected
+OK: on host 100.168.83.8 the iproute installation status is as expected
+OK: on host 100.168.83.8 the psmisc installation status is as expected
+OK: on host 100.168.83.8 the fping installation status is as expected
+OK: on host 100.168.83.8 the gcc-c++ installation status is as expected
+OK: on host 100.168.83.3 the iproute installation status is as expected
+OK: on host 100.168.83.3 the psmisc installation status is as expected
+OK: on host 100.168.83.3 the fping installation status is as expected
+OK: on host 100.168.83.3 the gcc-c++ installation status is as expected
+OK: on host 100.168.83.2 the iproute installation status is as expected
+OK: on host 100.168.83.2 the psmisc installation status is as expected
+OK: on host 100.168.83.2 the fping installation status is as expected
+OK: on host 100.168.83.2 the gcc-c++ installation status is as expected
+OK: on host 100.168.83.1 the iproute installation status is as expected
+OK: on host 100.168.83.1 the psmisc installation status is as expected
+OK: on host 100.168.83.1 the fping installation status is as expected
+OK: on host 100.168.83.1 the gcc-c++ installation status is as expected
+OK: on host 100.168.83.7 the iproute installation status is as expected
+OK: on host 100.168.83.7 the psmisc installation status is as expected
+OK: on host 100.168.83.7 the fping installation status is as expected
+OK: on host 100.168.83.7 the gcc-c++ installation status is as expected
+OK: on host 100.168.83.6 the iproute installation status is as expected
+OK: on host 100.168.83.6 the psmisc installation status is as expected
+OK: on host 100.168.83.6 the fping installation status is as expected
+OK: on host 100.168.83.6 the gcc-c++ installation status is as expected
+OK: on host 100.168.83.5 the iproute installation status is as expected
+OK: on host 100.168.83.5 the psmisc installation status is as expected
+OK: on host 100.168.83.5 the fping installation status is as expected
+OK: on host 100.168.83.5 the gcc-c++ installation status is as expected
+OK: on host 100.168.83.10 the iproute installation status is as expected
+OK: on host 100.168.83.10 the psmisc installation status is as expected
+OK: on host 100.168.83.10 the fping installation status is as expected
+OK: on host 100.168.83.10 the gcc-c++ installation status is as expected
+OK: on host 100.168.83.11 the iproute installation status is as expected
+OK: on host 100.168.83.11 the psmisc installation status is as expected
+OK: on host 100.168.83.11 the fping installation status is as expected
+OK: on host 100.168.83.11 the gcc-c++ installation status is as expected
+OK: on host 100.168.83.4 the iproute installation status is as expected
+OK: on host 100.168.83.4 the psmisc installation status is as expected
+OK: on host 100.168.83.4 the fping installation status is as expected
+OK: on host 100.168.83.4 the gcc-c++ installation status is as expected
+OK: on host 100.168.83.9 TCP port 6668 seems to be free
+OK: on host 100.168.83.8 TCP port 6668 seems to be free
+OK: on host 100.168.83.3 TCP port 6668 seems to be free
+OK: on host 100.168.83.2 TCP port 6668 seems to be free
+OK: on host 100.168.83.1 TCP port 6668 seems to be free
+OK: on host 100.168.83.7 TCP port 6668 seems to be free
+OK: on host 100.168.83.6 TCP port 6668 seems to be free
+OK: on host 100.168.83.5 TCP port 6668 seems to be free
+OK: on host 100.168.83.10 TCP port 6668 seems to be free
+OK: on host 100.168.83.11 TCP port 6668 seems to be free
+OK: on host 100.168.83.4 TCP port 6668 seems to be free
+
+Pre-flight RDMA checks:
+OK: on host 100.168.83.9 the librdmacm installation status is as expected
+OK: on host 100.168.83.9 the librdmacm-utils installation status is as expected
+OK: on host 100.168.83.9 the ibutils installation status is as expected
+OK: on host 100.168.83.8 the librdmacm installation status is as expected
+OK: on host 100.168.83.8 the librdmacm-utils installation status is as expected
+OK: on host 100.168.83.8 the ibutils installation status is as expected
+OK: on host 100.168.83.3 the librdmacm installation status is as expected
+OK: on host 100.168.83.3 the librdmacm-utils installation status is as expected
+OK: on host 100.168.83.3 the ibutils installation status is as expected
+OK: on host 100.168.83.2 the librdmacm installation status is as expected
+OK: on host 100.168.83.2 the librdmacm-utils installation status is as expected
+OK: on host 100.168.83.2 the ibutils installation status is as expected
+OK: on host 100.168.83.1 the librdmacm installation status is as expected
+OK: on host 100.168.83.1 the librdmacm-utils installation status is as expected
+OK: on host 100.168.83.1 the ibutils installation status is as expected
+OK: on host 100.168.83.7 the librdmacm installation status is as expected
+OK: on host 100.168.83.7 the librdmacm-utils installation status is as expected
+OK: on host 100.168.83.7 the ibutils installation status is as expected
+OK: on host 100.168.83.6 the librdmacm installation status is as expected
+OK: on host 100.168.83.6 the librdmacm-utils installation status is as expected
+OK: on host 100.168.83.6 the ibutils installation status is as expected
+OK: on host 100.168.83.5 the librdmacm installation status is as expected
+OK: on host 100.168.83.5 the librdmacm-utils installation status is as expected
+OK: on host 100.168.83.5 the ibutils installation status is as expected
+OK: on host 100.168.83.10 the librdmacm installation status is as expected
+OK: on host 100.168.83.10 the librdmacm-utils installation status is as expected
+OK: on host 100.168.83.10 the ibutils installation status is as expected
+OK: on host 100.168.83.11 the librdmacm installation status is as expected
+OK: on host 100.168.83.11 the librdmacm-utils installation status is as expected
+OK: on host 100.168.83.11 the ibutils installation status is as expected
+OK: on host 100.168.83.4 the librdmacm installation status is as expected
+OK: on host 100.168.83.4 the librdmacm-utils installation status is as expected
+OK: on host 100.168.83.4 the ibutils installation status is as expected
+OK: on host 100.168.83.9 the file /usr/bin/ibdev2netdev exists
+OK: on host 100.168.83.9 the file /usr/sbin/ibstat exists
+OK: on host 100.168.83.8 the file /usr/bin/ibdev2netdev exists
+OK: on host 100.168.83.8 the file /usr/sbin/ibstat exists
+OK: on host 100.168.83.3 the file /usr/bin/ibdev2netdev exists
+OK: on host 100.168.83.3 the file /usr/sbin/ibstat exists
+OK: on host 100.168.83.2 the file /usr/bin/ibdev2netdev exists
+OK: on host 100.168.83.2 the file /usr/sbin/ibstat exists
+OK: on host 100.168.83.1 the file /usr/bin/ibdev2netdev exists
+OK: on host 100.168.83.1 the file /usr/sbin/ibstat exists
+OK: on host 100.168.83.7 the file /usr/bin/ibdev2netdev exists
+OK: on host 100.168.83.7 the file /usr/sbin/ibstat exists
+OK: on host 100.168.83.6 the file /usr/bin/ibdev2netdev exists
+OK: on host 100.168.83.6 the file /usr/sbin/ibstat exists
+OK: on host 100.168.83.5 the file /usr/bin/ibdev2netdev exists
+OK: on host 100.168.83.5 the file /usr/sbin/ibstat exists
+OK: on host 100.168.83.10 the file /usr/bin/ibdev2netdev exists
+OK: on host 100.168.83.10 the file /usr/sbin/ibstat exists
+OK: on host 100.168.83.11 the file /usr/bin/ibdev2netdev exists
+OK: on host 100.168.83.11 the file /usr/sbin/ibstat exists
+OK: on host 100.168.83.4 the file /usr/bin/ibdev2netdev exists
+OK: on host 100.168.83.4 the file /usr/sbin/ibstat exists
+OK: on host 100.168.83.9 the RDMA port ib0 is on UP state
+OK: on host 100.168.83.8 the RDMA port ib0 is on UP state
+OK: on host 100.168.83.3 the RDMA port ib0 is on UP state
+OK: on host 100.168.83.2 the RDMA port ib0 is on UP state
+OK: on host 100.168.83.1 the RDMA port ib0 is on UP state
+OK: on host 100.168.83.7 the RDMA port ib0 is on UP state
+OK: on host 100.168.83.6 the RDMA port ib0 is on UP state
+OK: on host 100.168.83.5 the RDMA port ib0 is on UP state
+OK: on host 100.168.83.10 the RDMA port ib0 is on UP state
+OK: on host 100.168.83.11 the RDMA port ib0 is on UP state
+OK: on host 100.168.83.4 the RDMA port ib0 is on UP state
+OK: on host 100.168.83.9 the RDMA port ib0 is CA mlx5_2/1
+OK: on host 100.168.83.8 the RDMA port ib0 is CA mlx5_2/1
+OK: on host 100.168.83.3 the RDMA port ib0 is CA mlx5_2/1
+OK: on host 100.168.83.2 the RDMA port ib0 is CA mlx5_2/1
+OK: on host 100.168.83.1 the RDMA port ib0 is CA mlx5_2/1
+OK: on host 100.168.83.7 the RDMA port ib0 is CA mlx5_2/1
+OK: on host 100.168.83.6 the RDMA port ib0 is CA mlx5_2/1
+OK: on host 100.168.83.5 the RDMA port ib0 is CA mlx5_2/1
+OK: on host 100.168.83.10 the RDMA port ib0 is CA mlx5_2/1
+OK: on host 100.168.83.11 the RDMA port ib0 is CA mlx5_2/1
+OK: on host 100.168.83.4 the RDMA port ib0 is CA mlx5_2/1
+OK: all RDMA ports are up on all nodes
+
+Creating log dir on hosts:
+OK: on host 100.168.83.9 logdir /root/ECE_NETWORK_READINESS-master/log/2019-09-23_23-09-07 has been created
+OK: on host 100.168.83.8 logdir /root/ECE_NETWORK_READINESS-master/log/2019-09-23_23-09-07 has been created
+OK: on host 100.168.83.3 logdir /root/ECE_NETWORK_READINESS-master/log/2019-09-23_23-09-07 has been created
+OK: on host 100.168.83.2 logdir /root/ECE_NETWORK_READINESS-master/log/2019-09-23_23-09-07 has been created
+OK: on host 100.168.83.1 logdir /root/ECE_NETWORK_READINESS-master/log/2019-09-23_23-09-07 has been created
+OK: on host 100.168.83.7 logdir /root/ECE_NETWORK_READINESS-master/log/2019-09-23_23-09-07 has been created
+OK: on host 100.168.83.6 logdir /root/ECE_NETWORK_READINESS-master/log/2019-09-23_23-09-07 has been created
+OK: on host 100.168.83.5 logdir /root/ECE_NETWORK_READINESS-master/log/2019-09-23_23-09-07 has been created
+OK: on host 100.168.83.10 logdir /root/ECE_NETWORK_READINESS-master/log/2019-09-23_23-09-07 has been created
+OK: on host 100.168.83.11 logdir /root/ECE_NETWORK_READINESS-master/log/2019-09-23_23-09-07 has been created
+OK: on host 100.168.83.4 logdir /root/ECE_NETWORK_READINESS-master/log/2019-09-23_23-09-07 has been created
+
+Starting ping run from 100.168.83.9 to all nodes
+Ping run from 100.168.83.9 to all nodes completed
+
+Starting ping run from 100.168.83.8 to all nodes
+Ping run from 100.168.83.8 to all nodes completed
+
+Starting ping run from 100.168.83.3 to all nodes
+Ping run from 100.168.83.3 to all nodes completed
+
+Starting ping run from 100.168.83.2 to all nodes
+Ping run from 100.168.83.2 to all nodes completed
+
+Starting ping run from 100.168.83.1 to all nodes
+Ping run from 100.168.83.1 to all nodes completed
+
+Starting ping run from 100.168.83.7 to all nodes
+Ping run from 100.168.83.7 to all nodes completed
+
+Starting ping run from 100.168.83.6 to all nodes
+Ping run from 100.168.83.6 to all nodes completed
+
+Starting ping run from 100.168.83.5 to all nodes
+Ping run from 100.168.83.5 to all nodes completed
+
+Starting ping run from 100.168.83.10 to all nodes
+Ping run from 100.168.83.10 to all nodes completed
+
+Starting ping run from 100.168.83.11 to all nodes
+Ping run from 100.168.83.11 to all nodes completed
+
+Starting ping run from 100.168.83.4 to all nodes
+Ping run from 100.168.83.4 to all nodes completed
+
+Starting throughput tests. Please be patient.
+
+Starting throughput run from 100.168.83.9 to all nodes
+Completed throughput run from 100.168.83.9 to all nodes
+
+Starting throughput run from 100.168.83.8 to all nodes
+Completed throughput run from 100.168.83.8 to all nodes
+
+Starting throughput run from 100.168.83.3 to all nodes
+Completed throughput run from 100.168.83.3 to all nodes
+
+Starting throughput run from 100.168.83.2 to all nodes
+Completed throughput run from 100.168.83.2 to all nodes
+
+Starting throughput run from 100.168.83.1 to all nodes
+Completed throughput run from 100.168.83.1 to all nodes
+
+Starting throughput run from 100.168.83.7 to all nodes
+Completed throughput run from 100.168.83.7 to all nodes
+
+Starting throughput run from 100.168.83.6 to all nodes
+Completed throughput run from 100.168.83.6 to all nodes
+
+Starting throughput run from 100.168.83.5 to all nodes
+Completed throughput run from 100.168.83.5 to all nodes
+
+Starting throughput run from 100.168.83.10 to all nodes
+Completed throughput run from 100.168.83.10 to all nodes
+
+Starting throughput run from 100.168.83.11 to all nodes
+Completed throughput run from 100.168.83.11 to all nodes
+
+Starting throughput run from 100.168.83.4 to all nodes
+Completed throughput run from 100.168.83.4 to all nodes
+
+Starting many to many nodes throughput test
+Completed many to many nodes throughput test
+
+Results for ICMP latency test 1:n
+OK: on host 100.168.83.9 the 1:n average ICMP latency is 0.04 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.9 the 1:n maximum ICMP latency is 0.05 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 100.168.83.9 the 1:n minimum ICMP latency is 0.03 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.9 the 1:n standard deviation of ICMP latency is 0.01 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 100.168.83.8 the 1:n average ICMP latency is 0.04 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.8 the 1:n maximum ICMP latency is 0.05 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 100.168.83.8 the 1:n minimum ICMP latency is 0.03 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.8 the 1:n standard deviation of ICMP latency is 0.01 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 100.168.83.3 the 1:n average ICMP latency is 0.04 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.3 the 1:n maximum ICMP latency is 0.05 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 100.168.83.3 the 1:n minimum ICMP latency is 0.02 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.3 the 1:n standard deviation of ICMP latency is 0.01 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 100.168.83.2 the 1:n average ICMP latency is 0.04 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.2 the 1:n maximum ICMP latency is 0.05 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 100.168.83.2 the 1:n minimum ICMP latency is 0.02 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.2 the 1:n standard deviation of ICMP latency is 0.0 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 100.168.83.1 the 1:n average ICMP latency is 0.04 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.1 the 1:n maximum ICMP latency is 0.06 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 100.168.83.1 the 1:n minimum ICMP latency is 0.03 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.1 the 1:n standard deviation of ICMP latency is 0.01 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 100.168.83.7 the 1:n average ICMP latency is 0.04 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.7 the 1:n maximum ICMP latency is 0.06 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 100.168.83.7 the 1:n minimum ICMP latency is 0.03 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.7 the 1:n standard deviation of ICMP latency is 0.01 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 100.168.83.6 the 1:n average ICMP latency is 0.04 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.6 the 1:n maximum ICMP latency is 0.06 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 100.168.83.6 the 1:n minimum ICMP latency is 0.03 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.6 the 1:n standard deviation of ICMP latency is 0.01 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 100.168.83.5 the 1:n average ICMP latency is 0.04 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.5 the 1:n maximum ICMP latency is 0.06 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 100.168.83.5 the 1:n minimum ICMP latency is 0.02 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.5 the 1:n standard deviation of ICMP latency is 0.01 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 100.168.83.10 the 1:n average ICMP latency is 0.04 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.10 the 1:n maximum ICMP latency is 0.06 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 100.168.83.10 the 1:n minimum ICMP latency is 0.02 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.10 the 1:n standard deviation of ICMP latency is 0.01 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 100.168.83.11 the 1:n average ICMP latency is 0.04 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.11 the 1:n maximum ICMP latency is 0.06 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 100.168.83.11 the 1:n minimum ICMP latency is 0.03 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.11 the 1:n standard deviation of ICMP latency is 0.01 msec. Which is lower than the KPI of 0.33 msec
+
+OK: on host 100.168.83.4 the 1:n average ICMP latency is 0.04 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.4 the 1:n maximum ICMP latency is 0.06 msec. Which is lower than the KPI of 2.0 msec
+OK: on host 100.168.83.4 the 1:n minimum ICMP latency is 0.02 msec. Which is lower than the KPI of 1.0 msec
+OK: on host 100.168.83.4 the 1:n standard deviation of ICMP latency is 0.01 msec. Which is lower than the KPI of 0.33 msec
+
+Results for throughput test
+OK: on host 100.168.83.9 the throughput test result is 12000 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: on host 100.168.83.8 the throughput test result is 12000 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: on host all at the same time the throughput test result is 59800 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: on host 100.168.83.3 the throughput test result is 12000 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: on host 100.168.83.2 the throughput test result is 12000 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: on host 100.168.83.1 the throughput test result is 12000 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: on host 100.168.83.7 the throughput test result is 12000 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: on host 100.168.83.6 the throughput test result is 12000 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: on host 100.168.83.11 the throughput test result is 12000 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: on host 100.168.83.10 the throughput test result is 12000 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: on host 100.168.83.5 the throughput test result is 12000 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: on host 100.168.83.4 the throughput test result is 12000 MB/sec. Which is higher than the KPI of 2000 MB/sec
+OK: the difference of throughput between maximum and minimum values is 0.0%, which is less than 20% defined on the KPI
+
+The following metrics are not part of the KPI and are shown for informational purposes only
+INFO: The maximum throughput value is 12000.0
+INFO: The minimum throughput value is 12000.0
+INFO: The mean throughput value is 12000.0
+INFO: The standard deviation throughput value is 0.0
+INFO: The average NSD latency for 100.168.83.9 is 0.168331 msec
+INFO: The average NSD latency for 100.168.83.8 is 0.168924 msec
+INFO: The average NSD latency for all at the same time is 0.0381142 msec
+INFO: The average NSD latency for 100.168.83.3 is 0.170929 msec
+INFO: The average NSD latency for 100.168.83.2 is 0.168159 msec
+INFO: The average NSD latency for 100.168.83.1 is 0.169102 msec
+INFO: The average NSD latency for 100.168.83.7 is 0.169829 msec
+INFO: The average NSD latency for 100.168.83.6 is 0.170446 msec
+INFO: The average NSD latency for 100.168.83.11 is 0.17119 msec
+INFO: The average NSD latency for 100.168.83.10 is 0.16971 msec
+INFO: The average NSD latency for 100.168.83.5 is 0.16648 msec
+INFO: The average NSD latency for 100.168.83.4 is 0.170825 msec
+INFO: The standard deviation of NSD latency for 100.168.83.9 is 0.168331 msec
+INFO: The standard deviation of NSD latency for 100.168.83.8 is 0.168924 msec
+INFO: The standard deviation of NSD latency for all at the same time is 0.0381142 msec
+INFO: The standard deviation of NSD latency for 100.168.83.3 is 0.170929 msec
+INFO: The standard deviation of NSD latency for 100.168.83.2 is 0.168159 msec
+INFO: The standard deviation of NSD latency for 100.168.83.1 is 0.169102 msec
+INFO: The standard deviation of NSD latency for 100.168.83.7 is 0.169829 msec
+INFO: The standard deviation of NSD latency for 100.168.83.6 is 0.170474 msec
+INFO: The standard deviation of NSD latency for 100.168.83.11 is 0.17119 msec
+INFO: The standard deviation of NSD latency for 100.168.83.10 is 0.16971 msec
+INFO: The standard deviation of NSD latency for 100.168.83.5 is 0.16648 msec
+INFO: The standard deviation of NSD latency for 100.168.83.4 is 0.170825 msec
+INFO: The packet Rx error count for throughput test on 100.168.83.9 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 100.168.83.8 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 100.168.83.3 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 100.168.83.2 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 100.168.83.1 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 100.168.83.7 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 100.168.83.6 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 100.168.83.11 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 100.168.83.10 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 100.168.83.5 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on 100.168.83.4 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 100.168.83.9 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 100.168.83.8 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 100.168.83.3 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 100.168.83.2 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 100.168.83.1 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 100.168.83.7 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 100.168.83.6 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 100.168.83.11 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 100.168.83.10 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 100.168.83.5 is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on 100.168.83.4 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 100.168.83.9 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 100.168.83.8 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 100.168.83.3 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 100.168.83.2 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 100.168.83.1 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 100.168.83.7 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 100.168.83.6 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 100.168.83.11 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 100.168.83.10 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 100.168.83.5 is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test on 100.168.83.4 is equal to 0 packet[s]
+INFO: The packet Rx error count for throughput test on many to many is equal to 0 packet[s]
+INFO: The packet Tx error count for throughput test on many to many is equal to 0 packet[s]
+INFO: The packet retransmit count for throughput test many to many is equal to 0 packet[s]
+
+The summary of this run:
+
+	The 1:n ICMP average latency was successful in all nodes
+	The 1:n throughput test was successful in all nodes
 
 OK: All tests had been passed. You can proceed with the next steps
 ```

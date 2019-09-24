@@ -15,6 +15,7 @@ import argparse
 import operator
 from math import sqrt, ceil
 from functools import reduce
+import re
 
 try:
     raw_input      # Python 2
@@ -41,11 +42,14 @@ MIN_NSD_THROUGHPUT = 2000  # Acceptance value with lots of margin
 # GITHUB URL
 GIT_URL = "https://github.com/IBM/SpectrumScale_NETWORK_READINESS"
 
+# IP RE
+IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
+
 # devnull redirect destination
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.4"
+KOET_VERSION = "1.5"
 
 
 def load_json(json_file_str):
@@ -61,7 +65,7 @@ def load_json(json_file_str):
 
 
 def json_file_loads(json_file_str):
-    #We try to load the JSON and return the success of failure
+    # We try to load the JSON and return the success of failure
     try:
         with open(json_file_str, "r") as json_file_test:
             json_variable = json.load(json_file_test)
@@ -71,8 +75,9 @@ def json_file_loads(json_file_str):
         json_loads = False
     return json_loads
 
+
 def write_json_file_from_dictionary(hosts_dictionary, json_file_str):
-    #We are going to generate or overwrite the hosts JSON file
+    # We are going to generate or overwrite the hosts JSON file
     try:
         with open(json_file_str, "w") as json_file:
             json.dump(hosts_dictionary, json_file)
@@ -82,6 +87,26 @@ def write_json_file_from_dictionary(hosts_dictionary, json_file_str):
     except Exception:
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "Cannot write JSON file: " + json_file_str)
+
+
+def check_localnode_is_in(hosts_dictionary):
+    localNode = None
+    try:
+        raw_out = os.popen("ip addr show").read()
+    except BaseException:
+        sys.exit(RED + "QUIT: " + NOCOLOR + "cannot list ip " +
+                 "address on local node\n")
+    # create a list of allip addresses for local node
+    iplist = IPPATT.findall(raw_out)
+
+    # check for match with one of input ip addresses
+    for node in hosts_dictionary.keys():
+        if node in iplist:
+            localNode = node
+            break
+    if localNode is None:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "Local node is not part of the test\n")
 
 
 def estimate_runtime(hosts_dictionary, fp_count, perf_runtime):
@@ -127,7 +152,7 @@ def parse_arguments():
         '--hosts',
         action='store',
         dest='hosts',
-        help='IP addreses of hosts on CSV format. ' +
+        help='IP addresses of hosts on CSV format. ' +
         'Using this overrides the hosts.json file.',
         metavar='HOSTS_CSV',
         type=str,
@@ -149,13 +174,28 @@ def parse_arguments():
         action='store',
         dest='perf_runtime',
         help='The seconds of nsdperf runtime per test. ' +
-        'The value has to be at least 10 seconds.' +
+        'The value has to be at least 10 seconds. ' +
         'The minimum required value for certification is ' +
         str(PERF_RUNTIME),
         metavar='PERF_RUNTIME',
         type=int,
         default=1200)
-
+    parser.add_argument(
+        '--rdma',
+        action='store',
+        dest='rdma',
+        help='Enables RDMA and ports to be check on CSV format ' +
+        '(ib0,ib1,...). Must be using OS device names, not mlx names.',
+        metavar='PORTS_CSV',
+        default="")
+    parser.add_argument(
+        '--rpm_check_disabled',
+        action='store_true',
+        dest='no_rpm_check',
+        help='Disables the RPM prerequisites check. Use only if you are ' +
+        'sure all required software is installed and no RPM were used ' +
+        'to install the required prerequisites',
+        default=False)
     parser.add_argument(
         '--save-hosts',
         action='store_true',
@@ -179,6 +219,9 @@ def parse_arguments():
     if args.perf_runtime <= 9:
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "nsdperf runtime cannot be less than 10 seconds\n")
+    if 'mlx' in args.rdma:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "RDMA ports must be OS names (ib0,ib1,...)\n")
     # we check is a CSV string and if so we put it on dictionary
     cli_hosts = False
     hosts_dictionary = {}
@@ -193,13 +236,25 @@ def parse_arguments():
             sys.exit(RED + "QUIT: " + NOCOLOR +
                      "hosts parameter is not on CSV format")
 
+    rdma_ports_list = []
+    if args.rdma != "":
+        rdma_test = True
+        rdma_ports_raw = args.rdma
+        try:
+            rdma_ports_list = rdma_ports_raw.split(",")
+        except Exception:
+            sys.exit(RED + "QUIT: " + NOCOLOR +
+                     "rdma parameter is not on CSV format")
+    else:
+        rdma_test = False
     if args.save_hosts and not cli_hosts:
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "cannot generate hosts file if hosts not passed with --hosts")
 
     return (round(args.max_avg_latency, 2), args.fping_count,
             args.perf_runtime, args.perf_throughput,
-            cli_hosts, hosts_dictionary, args.save_hosts)
+            cli_hosts, hosts_dictionary, rdma_test, rdma_ports_list,
+            args.no_rpm_check, args.save_hosts)
 
 
 def check_kpi_is_ok(max_avg_latency, fping_count, perf_bw, perf_rt):
@@ -238,6 +293,7 @@ def show_header(koet_h_version, json_version,
         print("JSON files versions:")
         print("\tsupported OS:\t\t" + json_version['supported_OS'])
         print("\tpackages: \t\t" + json_version['packages'])
+        print("\tpackages RDMA:\t\t" + json_version['packages_rdma'])
         print("")
         print("Please use " + GIT_URL +
               " to get latest versions and report issues about this tool.")
@@ -365,7 +421,10 @@ def check_os_redhat(os_dictionary):
         print("")
 
 
-def get_json_versions(os_dictionary, packages_dictionary):
+def get_json_versions(
+                    os_dictionary,
+                    packages_dictionary,
+                    packages_rdma_dict):
     # Gets the versions of the json files into a dictionary
     json_version = {}
 
@@ -380,6 +439,12 @@ def get_json_versions(os_dictionary, packages_dictionary):
     except Exception:
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "Cannot load version from packages JSON")
+
+    try:
+        json_version['packages_rdma'] = packages_rdma_dict['json_version']
+    except Exception:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "Cannot load version from packages RDMA JSON")
 
     # If we made it this far lets return the dictionary. This was being stored
     # in its own file before
@@ -453,8 +518,6 @@ def host_packages_check(hosts_dictionary, packages_dictionary):
     # Checks if packages from JSON are installed or not based on the input
     # data ont eh JSON
     errors = 0
-    print("Checking packages install status:")
-    print("")
     for host in hosts_dictionary.keys():
         for rpm_package in packages_dictionary.keys():
             if rpm_package != "json_version":
@@ -486,6 +549,248 @@ def host_packages_check(hosts_dictionary, packages_dictionary):
                  "Fix the packages before running this tool again.\n")
 
 
+def ssh_file_exists(host, fileurl):
+    # returns the RC of ssh+ls of a file or quits if any error
+    try:
+        return_code = subprocess.call(['ssh',
+                                       '-o',
+                                       'StrictHostKeyChecking=no',
+                                       host,
+                                       'ls',
+                                       '-1',
+                                       fileurl],
+                                      stdout=DEVNULL,
+                                      stderr=DEVNULL)
+    except Exception:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "cannot run ls over ssh on host " + host)
+    return return_code
+
+
+def ssh_rdma_ports_are_up(host, rdma_ports_list):
+    errors = 0
+    for port in rdma_ports_list:
+        return_code = subprocess.call(['ssh',
+                                       '-o',
+                                       'StrictHostKeyChecking=no',
+                                       host,
+                                       '/usr/bin/ibdev2netdev',
+                                       '|',
+                                       'grep',
+                                       port,
+                                       '|',
+                                       'grep',
+                                       '"(Up)"'],
+                                      stdout=DEVNULL,
+                                      stderr=DEVNULL)
+        if return_code == 0:
+            print(
+                GREEN +
+                "OK: " +
+                NOCOLOR +
+                "on host " +
+                host +
+                " the RDMA port " +
+                port +
+                " is on UP state")
+        else:
+            print(
+                RED +
+                "ERROR: " +
+                NOCOLOR +
+                "on host " +
+                host +
+                " the RDMA port " +
+                port +
+                " is *NOT* on UP state")
+            errors = errors + 1
+    if errors == 0:
+        all_ports_up = True
+    else:
+        all_ports_up = False
+    return all_ports_up
+
+
+def check_rdma_port_mode(hosts_ports_dict):
+    errors = 0
+    for host in hosts_ports_dict.keys():
+        ssh_command = 'ssh -o StrictHostKeyChecking=no ' + host + ' '
+        # we remove the port bit
+        for port in hosts_ports_dict[host].keys():
+            card_str = str(hosts_ports_dict[host][port].split('/')[0])
+            try:
+                raw_out = os.popen(
+                                ssh_command + '/usr/sbin/ibstat ' +
+                                card_str).read()
+            except BaseException:
+                sys.exit(RED + "QUIT: " + NOCOLOR +
+                         "There was an issue to query rdma ports on "
+                         + host + "\n")
+            if 'Ethernet' in raw_out:
+                print(
+                    RED +
+                    "ERROR: " +
+                    NOCOLOR +
+                    "host " +
+                    host +
+                    " has Mellanox ports " +
+                    port +
+                    " on Ethernet mode")
+                errors = errors + 1
+    return errors
+
+
+def map_ib_to_mlx(host, rdma_ports_list):
+    port_pair_dict = {}
+    ssh_command = 'ssh -o StrictHostKeyChecking=no ' + host + ' '
+    try:
+        raw_os = os.popen(
+                        ssh_command +
+                        "/usr/bin/ibdev2netdev|awk '{print$5}'").read()
+        raw_mlx = os.popen(
+                        ssh_command +
+                        "/usr/bin/ibdev2netdev|awk '{print$1}'").read()
+        raw_port = os.popen(
+                        ssh_command +
+                        "/usr/bin/ibdev2netdev|awk '{print$3}'").read()
+    except BaseException:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "There was an issue to query rdma cards on " + host + "\n")
+    raw_list_os = raw_os.strip().split("\n")
+    raw_list_mlx = raw_mlx.strip().split("\n")
+    raw_list_port = raw_port.strip().split("\n")
+
+    port_pair_dict = {osdev: '{}/{}'.format(raw_list_mlx[osidx],
+                                            raw_list_port[osidx])
+                      for osidx, osdev in
+                      enumerate(raw_list_os) if osdev in rdma_ports_list}
+    for osdev in port_pair_dict:
+        print(
+              GREEN +
+              "OK: " +
+              NOCOLOR +
+              "on host " +
+              host +
+              " the RDMA port " +
+              osdev +
+              " is CA " +
+              port_pair_dict[osdev])
+    return port_pair_dict
+
+
+def check_rdma_ports_OS(host, port):
+    # Lets check we have the tool we need
+    try:
+        return_code = subprocess.call(['ssh',
+                                       '-o',
+                                       'StrictHostKeyChecking=no',
+                                       host,
+                                       'ifconfig',
+                                       port],
+                                      stdout=DEVNULL,
+                                      stderr=DEVNULL)
+    except Exception:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "cannot check port over ssh on host " + host)
+    if return_code == 0:
+        error = False
+    else:
+        error = True
+    return error
+
+
+def check_rdma_tools(host, toolpath):
+    # Given the host returns a list of the IB ports on up status
+    errors = 0
+    # Lets check we have the tool we need
+    rc_tool = ssh_file_exists(host, toolpath)
+    if rc_tool == 0:
+        print(
+            GREEN +
+            "OK: " +
+            NOCOLOR +
+            "on host " +
+            host +
+            " the file " +
+            toolpath +
+            " exists")
+    else:
+        print(
+            RED +
+            "ERROR: " +
+            NOCOLOR +
+            "on host " +
+            host +
+            " the file " +
+            toolpath +
+            " does *NOT* exists")
+        errors = errors + 1
+    return errors
+
+
+def unique_items_list(my_list):
+    unique_items_list = []
+    for item in my_list:
+        if item not in unique_items_list:
+            unique_items_list.append(item)
+    return unique_items_list
+
+
+def create_mlx_csv(hosts_ports_dict, rdma_ports_list):
+    mlx_list = []
+    for host in hosts_ports_dict.keys():
+        for os_port in hosts_ports_dict[host].keys():
+            if os_port in rdma_ports_list:
+                mlx_list.append(hosts_ports_dict[host][os_port])
+    # so we have a list with mlx ports
+    mlx_list_unique = unique_items_list(mlx_list)
+    mlx_list_unique_csv = ','.join(mlx_list_unique)
+    return mlx_list_unique_csv
+
+
+def check_rdma_ports(hosts_dictionary, rdma_ports_list):
+    errors_tool = 0
+    fatal_error = False
+    for host in hosts_dictionary.keys():
+        ibdev2netdev_filepath = "/usr/bin/ibdev2netdev"
+        error_tool_ibdev = check_rdma_tools(host, ibdev2netdev_filepath)
+        ibstat_filepath = "/usr/sbin/ibstat"
+        error_tool_ibstat = check_rdma_tools(host, ibstat_filepath)
+    errors_tool = error_tool_ibdev + error_tool_ibstat
+    if errors_tool > 0:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "Fix the missing files before running this tool again.\n")
+    # Lets see if does exist on the node or hard fail
+    not_OS_port = False
+    for host in hosts_dictionary.keys():
+        for port in rdma_ports_list:
+            not_OS_port = check_rdma_ports_OS(host, port)
+            if not_OS_port:
+                sys.exit(RED + "QUIT: " + NOCOLOR + "On host " +
+                         str(host) + " port " + port + " not found\n")
+    # Lets check the ports are UP on all nodes, or fail
+    errors_ports = 0
+    errors_port_mode = 0
+    for host in hosts_dictionary.keys():
+        ports_are_up = ssh_rdma_ports_are_up(host, rdma_ports_list)
+        if not ports_are_up:
+            errors_ports = errors_ports + 1
+    if errors_ports > 0:
+        fatal_error = True
+    hosts_ports_dict = {}
+    for host in hosts_dictionary.keys():
+        hosts_ports_dict[host] = map_ib_to_mlx(host, rdma_ports_list)
+    # Create list of mlx ports
+    rdma_ports_csv_mlx = create_mlx_csv(hosts_ports_dict, rdma_ports_list)
+    # Check Ethernet mode and status UP
+    errors_port_mode = check_rdma_port_mode(hosts_ports_dict)
+    if errors_port_mode > 0:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "Fix the port mode or disconnect the link " +
+                 "before running this tool again.\n")
+    return fatal_error, rdma_ports_csv_mlx
+
+
 def is_IP_address(ip):
     # Lets check is a full ip by counting dots
     if ip.count('.') != 3:
@@ -514,28 +819,75 @@ def check_hosts_are_ips(hosts_dictionary):
 def check_hosts_number(hosts_dictionary):
     number_unique_hosts = len(hosts_dictionary)
     number_unique_hosts_str = str(number_unique_hosts)
-    if len(hosts_dictionary) > 32 or len(hosts_dictionary) < 4:
+    if len(hosts_dictionary) > 64 or len(hosts_dictionary) < 2:
         sys.exit(
             RED +
             "QUIT: " +
             NOCOLOR +
             "the number of hosts is not valid. It is " +
             number_unique_hosts_str +
-            " and should be between 4 and 32 unique hosts.\n")
+            " and should be between 2 and 64 unique hosts.\n")
 
 
-def create_log_dir():
-    # datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+def create_local_log_dir(log_dir_timestamp):
     logdir = os.path.join(
         os.getcwd(),
         'log',
-        datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+        log_dir_timestamp)
     try:
         os.makedirs(logdir)
         return logdir
     except Exception:
         sys.exit(RED + "QUIT: " + NOCOLOR +
-                 "cannot create directory " + logdir + "\n")
+                 "cannot create local directory " + logdir + "\n")
+
+
+def create_log_dir(hosts_dictionary, log_dir_timestamp):
+    # datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    print ("Creating log dir on hosts:")
+    errors = 0
+    logdir = os.path.join(
+        os.getcwd(),
+        'log',
+        log_dir_timestamp)
+    for host in hosts_dictionary:
+        return_code = subprocess.call(['ssh',
+                                       '-o',
+                                       'StrictHostKeyChecking=no',
+                                       host,
+                                       'mkdir',
+                                       '-p',
+                                       logdir],
+                                      stdout=DEVNULL,
+                                      stderr=DEVNULL)
+        if return_code == 0:
+            print(
+                GREEN +
+                "OK: " +
+                NOCOLOR +
+                "on host " +
+                host +
+                " logdir " +
+                logdir +
+                " has been created")
+        else:
+            print(
+                  RED +
+                  "ERROR: " +
+                  NOCOLOR +
+                  "on host " +
+                  host +
+                  " logdir " +
+                  logdir +
+                  " has *NOT* been created")
+            errors = errors + 1
+    if errors > 0:
+        sys.exit(RED +
+                 "QUIT: " +
+                 NOCOLOR +
+                 "we cannot continue without all the log directories created")
+    else:
+        return logdir
 
 
 def latency_test(hosts_dictionary, logdir, fping_count):
@@ -567,10 +919,15 @@ def throughput_test_os(command, nsd_logfile, client):
         time.sleep(5)
     except BaseException:
         sys.exit(RED + "QUIT: " + NOCOLOR +
-                 "Throughput run " + client + " failed unexpectedly\n")
+                 "Throughput run " + client + "failed unexpectedly " +
+                 " when calling: " + str(command) + "\n")
 
 
-def throughput_test(hosts_dictionary, logdir, perf_runtime):
+def throughput_test(hosts_dictionary,
+                    logdir,
+                    perf_runtime,
+                    rdma_test,
+                    rdma_ports_csv_mlx):
     throughput_json_files_list = []
     print("")
     print("Starting throughput tests. Please be patient.")
@@ -581,15 +938,25 @@ def throughput_test(hosts_dictionary, logdir, perf_runtime):
         del server_hosts_dictionary[client]
         server_csv_str = (",".join(server_hosts_dictionary.keys()))
         # Craft the call of nsdperf exec/wrapper
-        command = "./nsdperfTool.py -t read -k 4194304 -b 4194304 " \
-            "-R 256 -W 256 -T 256 -d " + logdir + " -s " + \
-            server_csv_str + " -c " + client + " -l " + str(perf_runtime)
+        if rdma_test:
+            command = "./nsdperfTool.py -t read -k 4194304 -b 4194304 " \
+                      "-R 32 -W 32 -T 32 -d " + logdir + " -s " + \
+                      server_csv_str + " -c " + client + " -l " + \
+                      str(perf_runtime) + " -p " + rdma_ports_csv_mlx
+        else:
+            command = "./nsdperfTool.py -t read -k 4194304 -b 4194304 " \
+                "-R 256 -W 256 -T 256 -d " + logdir + " -s " + \
+                server_csv_str + " -c " + client + " -l " + str(perf_runtime)
         nsd_logfile = open(logdir + "/nsdperfTool_log", "a")
         throughput_test_os(command, nsd_logfile, client)
         nsd_logfile.close()
         # Copy the file to avoid overwrite it
-        copyfile(logdir + "/nsdperfResult.json", logdir + "/nsd_" +
-                 client + ".json")
+        try:
+            copyfile(logdir + "/nsdperfResult.json", logdir + "/nsd_" +
+                     client + ".json")
+        except BaseException:
+            print(YELLOW + "WARNING: " + NOCOLOR +
+                  "cannot copy result JSON file")
         print("Completed throughput run from " + client + " to all nodes")
     print("")
     print("Starting many to many nodes throughput test")
@@ -603,15 +970,26 @@ def throughput_test(hosts_dictionary, logdir, perf_runtime):
         servers_nodes_d = dict(hosts_dictionary.items()[:middle_index])
     clients_csv = (",".join(clients_nodes_d.keys()))
     servers_csv = (",".join(servers_nodes_d.keys()))
-    command = "./nsdperfTool.py -t read -k 4194304 -b 4194304 " \
-        "-R 256 -W 256 -T 256 -d " + logdir + " -s " + \
-        servers_csv + " -c " + clients_csv + " -l " + str(perf_runtime)
+    if rdma_test:
+        command = "./nsdperfTool.py -t read -k 4194304 -b 4194304 " \
+            "-R 32 -W 32 -T 32 -d " + logdir + " -s " + \
+            servers_csv + " -c " + clients_csv + " -l " + \
+            str(perf_runtime) + " -p " + rdma_ports_csv_mlx
+    else:
+        command = "./nsdperfTool.py -t read -k 4194304 -b 4194304 " \
+            "-R 256 -W 256 -T 256 -d " + logdir + " -s " + \
+            servers_csv + " -c " + clients_csv + " -l " + str(perf_runtime)
     nsd_logfile = open(logdir + "/nsdperfTool_log", "a")
     throughput_test_os(command, nsd_logfile, client)
     nsd_logfile.close()
     # Copy the file to avoid overwrite it
-    copyfile(logdir + "/nsdperfResult.json", logdir + "/nsd_mess" + ".json")
-    print("Completed Many to many nodes throughput test")
+    try:
+        copyfile(logdir + "/nsdperfResult.json", logdir +
+                 "/nsd_mess" + ".json")
+    except BaseException:
+        print(YELLOW + "WARNING: " + NOCOLOR +
+              "cannot copy result JSON file")
+    print("Completed many to many nodes throughput test")
     return clients_nodes_d
 
 
@@ -721,7 +1099,7 @@ def load_throughput_tests(logdir, hosts_dictionary, many2many_clients):
     for host in hosts_dictionary.keys():
         fileurl = logdir + "/nsd_" + host + ".json"
         file_exists(fileurl)
-        #Lets do a load to check it is a proper file
+        # Lets do a load to check it is a proper file
         json_loads = json_file_loads(fileurl)
         if json_loads:
             throughput_json_files_list.append(fileurl)
@@ -735,7 +1113,7 @@ def load_throughput_tests(logdir, hosts_dictionary, many2many_clients):
                   ". We are going to ignore this host on the results")
     # We append the mess run
     mess_file_url = logdir + "/nsd_mess.json"
-    #Lets do a load to check it is a proper file
+    # Lets do a load to check it is a proper file
     json_loads = json_file_loads(mess_file_url)
     if json_loads:
             throughput_json_files_list.append(mess_file_url)
@@ -894,7 +1272,7 @@ def nsd_KPI(min_nsd_throughput,
 
     print("")
     print("The following metrics are not part of the KPI and " +
-           "are shown for informational purposes only")
+          "are shown for informational purposes only")
     print(GREEN +
           "INFO: " +
           NOCOLOR +
@@ -1224,30 +1602,36 @@ def print_end_summary(a_avg_fp_err, a_nsd_err, lat_kpi_ok,
 def main():
     # Parsing input
     max_avg_latency, fping_count, perf_runtime, min_nsd_throughput, \
-         cli_hosts, hosts_dictionary, save_hosts = parse_arguments()
+         cli_hosts, hosts_dictionary, rdma_test, rdma_ports_list, \
+         no_rpm_check, save_hosts = parse_arguments()
     max_max_latency = max_avg_latency * 2
     max_stddev_latency = max_avg_latency / 3
+    rdma_ports_csv_mlx = []
 
     # JSON loads
     os_dictionary = load_json("supported_OS.json")
     packages_dictionary = load_json("packages.json")
+    packages_rdma_dictionary = load_json("packages_rdma.json")
     if not cli_hosts:
         hosts_dictionary = load_json("hosts.json")
 
     # Check hosts are IP addresses
     check_hosts_are_ips(hosts_dictionary)
 
-    # Check hosts are 4 to 32
+    # Check hosts are 2 to 64
     check_hosts_number(hosts_dictionary)
 
     # Initial header
-    json_version = get_json_versions(os_dictionary, packages_dictionary)
+    json_version = get_json_versions(
+                                    os_dictionary,
+                                    packages_dictionary,
+                                    packages_rdma_dictionary)
     estimated_runtime_str = str(
         estimate_runtime(hosts_dictionary, fping_count, perf_runtime))
     show_header(KOET_VERSION, json_version, estimated_runtime_str,
                 max_avg_latency, fping_count, min_nsd_throughput, perf_runtime)
 
-    #JSON hosts write
+    # JSON hosts write
     if save_hosts:
         write_json_file_from_dictionary(hosts_dictionary, "hosts.json")
 
@@ -1261,20 +1645,54 @@ def main():
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "this is not a supported Linux distribution for this tool\n")
 
+    # Check local node is included on the test
+    check_localnode_is_in(hosts_dictionary)
+
     # Check SSH
     test_ssh(hosts_dictionary)
 
     # Check packages are installed
-    host_packages_check(hosts_dictionary, packages_dictionary)
+    print("Pre-flight generic checks:")
+    if no_rpm_check:
+        print(YELLOW + "WARNING: " + NOCOLOR +
+              "you have disabled RPM checks, things might break")
+    else:
+        host_packages_check(hosts_dictionary, packages_dictionary)
 
     # Check TCP port 6668 is not in use. Limited from view of this host
     check_tcp_port_free(hosts_dictionary, 6668)
+    print("")
+
+    # If RDMA lets get the ports on a dictionary
+    if rdma_test:
+        # Lets check that we have the RDMA needed SW
+        print("Pre-flight RDMA checks:")
+        if no_rpm_check:
+            print(YELLOW + "WARNING: " + NOCOLOR +
+                  "you have disabled RPM checks, things might break")
+        else:
+            host_packages_check(hosts_dictionary, packages_rdma_dictionary)
+        rdma_port_error, rdma_ports_csv_mlx = check_rdma_ports(
+                                                            hosts_dictionary,
+                                                            rdma_ports_list)
+        if not rdma_port_error:
+            print(GREEN + "OK: " + NOCOLOR +
+                  "all RDMA ports are up on all nodes")
+        else:
+            sys.exit(RED + "QUIT: " + NOCOLOR +
+                     "not all RDMA ports are up on all nodes\n")
+        print("")
 
     # Run
-    logdir = create_log_dir()
+    log_dir_timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    logdir = create_local_log_dir(log_dir_timestamp)
+    create_log_dir(hosts_dictionary, log_dir_timestamp)
     latency_test(hosts_dictionary, logdir, fping_count)
     many2many_clients = throughput_test(hosts_dictionary,
-                                        logdir, perf_runtime)
+                                        logdir,
+                                        perf_runtime,
+                                        rdma_test,
+                                        rdma_ports_csv_mlx)
 
     # Load results
     all_fping_dictionary, all_fping_dictionary_max, all_fping_dictionary_min, \

@@ -10,10 +10,11 @@ import threading
 import subprocess
 
 # Regular expressions
-IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
-
+IPPATT = re.compile(r'.*inet\s+(?P<ip>.*)\/\d+')
 
 # Subroutines
+
+
 def processArgs():
     if (not conf["server"] or not conf["client"]):
         halt("Error: you have to provide both --client and --server")
@@ -90,8 +91,16 @@ def runTest(server, client):
 
     log("Get retransmit and packet loss data before test")
     netDataBefore = getNetData(client)
+    if (conf["rdmaPorts"]):
+        if (conf["rdmaPorts"][localNode]):
+            localOpts = cliOptions + "-r %s " % (conf["rdmaPorts"][localNode])
+    else:
+        localOpts = cliOptions
     output = chkcmdLiveOutput(
-        "%s_%s -i %s %s" % (nsdperfexe, localNode, nsdperfCmdFile, cliOptions))
+        "%s_%s -i %s %s" % (nsdperfexe, localNode, nsdperfCmdFile, localOpts))
+    err = re.search("Error reply from", output)
+    if (err):
+        halt("Error, nsdperf test seems failed, please check command output")
     log("Get retransmit and packet loss data after test")
     netDataAfter = getNetData(client)
     netData = {}
@@ -111,6 +120,7 @@ def makeCmds(server, client):
     servers = joinStr.join(server)
     clients = joinStr.join(client)
     cmdsInFile = "server %s\nclient %s\n" % (servers, clients)
+    #File based options to nsdperf
     if (conf["ttime"]):
         cmdsInFile = cmdsInFile + "ttime %s\n" % (conf["ttime"])
     if (conf["testerThr"]):
@@ -119,13 +129,15 @@ def makeCmds(server, client):
         cmdsInFile = cmdsInFile + "buffsize %s\n" % (conf["buffsize"])
     if (conf["socksize"]):
         cmdsInFile = cmdsInFile + "socksize %s\n" % (conf["socksize"])
+    if (conf["rdmaPorts"]):
+        cmdsInFile = cmdsInFile + "rdma on\n"
     for test in conf["test"]:
         cmdsInFile = cmdsInFile + "test %s\n" % (test)
     cmdsInFile = cmdsInFile + "killall\nquit"
     cmdFile = open(nsdperfCmdFile, 'w')
     cmdFile.write(cmdsInFile)
     cmdFile.close()
-
+    #Parameters based to nsdperf
     if (conf["receiverThr"]):
         cliOptions = cliOptions + "-t %s " % (conf["receiverThr"])
     if (conf["workerThr"]):
@@ -138,8 +150,12 @@ def startServerThr(node, cliOptions):
     killer(node, "nsdperfexe")
     # Give some time to die
     time.sleep(5)
+    if (conf["rdmaPorts"]):
+        nodeOpts = cliOptions + "-r %s " % (conf["rdmaPorts"][node])
+    else:
+        nodeOpts = cliOptions
     chkcmd("%s %s \"%s_%s -s %s > %s/server_thread_log 2>&1 &\""
-           % (ssh, node, nsdperfexe, node, cliOptions, nsdperfPath))
+           % (ssh, node, nsdperfexe, node, nodeOpts, nsdperfPath))
     # Give some time to start
     time.sleep(5)
 
@@ -276,6 +292,7 @@ def shortUsage():
     print("          [-R|--receiverThr nReceiverThread] "
           "[-W|--workerThr nWorkerThread] [-T|--testerThr nTesterThread]")
     print("          [-r|--rebuild] [-d|--directory dir] [-h|--help]")
+    print("          [-p|--rdmaPorts]")
 
 
 def longUsage():
@@ -288,6 +305,7 @@ def longUsage():
     print("          [-R|--receiverThr nReceiverThread] "
           "[-W|--workerThr nWorkerThread] [-T|--testerThr nTesterThread]")
     print("          [-r|--rebuild] [-d|--directory dir] [-h|--help]")
+    print("          [--RDMA]")
     print("")
     print("This tool is a wrapper over nsdperf.C which helps to "
           "automatically build and execute nsdperf tests with given "
@@ -321,6 +339,11 @@ def longUsage():
     print("-d|--directory dir: absolute path of local directory on "
           "each node to save nsdperf executable and output files, "
           "default is \"/tmp/nsdperf\"")
+    print("-p|--rdmaPorts '{\"node1\": \"port11,port12\", "
+          "\"node2\": \"port21,port22\", ...}': "
+          "set different RDMA ports for each node and enable RDMA tests. ")
+    print("OR -p|--rdmaPorts port1,port2: "
+          "set same RDMA ports for all nodes and enable RDMA tests.")
     print("-h|--help: print this help message")
 
 
@@ -398,14 +421,14 @@ LOG_LOCK = threading.Lock()
 # Obtain command line options
 conf = {'server': '', 'client': '', 'test': '', 'ttime': '', 'buffsize': '',
         'socksize': '', 'receiverThr': '', 'workerThr': '', 'testerThr': '',
-        'rebuild': '', 'directory': ''}
+        'rebuild': '', 'directory': '', 'rdmaPorts': ''}
 
 try:
     opts, args = getopt.getopt(
-        sys.argv[1:], "hs:c:n:t:l:b:k:R:W:T:rd:",
+        sys.argv[1:], "hs:c:n:t:l:b:k:R:W:T:rd:p:",
         ["help", "server=", "client=", "test=", "testTime=", "buffsize=",
          "socksize=", "nReciverThr=", "nWorkerThr=", "nTesterThr=", "rebuild",
-         "directory="])
+         "directory=", "rdmaPorts="])
 except getopt.GetoptError:
     shortUsage()
     sys.exit(1)
@@ -436,6 +459,18 @@ for op, value in opts:
         conf["rebuild"] = True
     elif op in ("-d", "--directory"):
         nsdperfPath = value
+    elif op in ("-p", "--rdmaPorts"):
+        try:
+            conf["rdmaPorts"] = json.loads(value)
+        except Exception:
+            log("I get non-json format --rdmaPorts input: <%s>" % value)
+            log("Set it to be the RDMA ports for all nodes")
+            rdmaPorts = {}
+            for node in conf["server"]:
+                rdmaPorts[node] = value
+            for node in conf["client"]:
+                rdmaPorts[node] = value
+            conf["rdmaPorts"] = rdmaPorts
     else:
         log("Error: Unknown option %s" % (op))
         shortUsage()

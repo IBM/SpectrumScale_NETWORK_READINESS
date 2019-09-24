@@ -20,3 +20,10 @@ Changelog:
 
 - 1.4
     - Added check for rare (not manage to reproduce in lab) case where nsdperf fails to generate JSON
+
+- 1.5
+    - Initial implementation of RDMA throughput tests with nsdperf backend
+    - Changed minimum number of hosts from 4 to 2
+    - Changed maximum number of nodes from 32 to 64
+    - Added option to bypass RPM SW checks
+    - Minor cosmetic changes
