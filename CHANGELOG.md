@@ -27,3 +27,7 @@ Changelog:
     - Changed maximum number of nodes from 32 to 64
     - Added option to bypass RPM SW checks
     - Minor cosmetic changes
+
+- 1.6
+    - Added support for RHEL 8.0 and RHEL 7.7
+    - Minor cosmetic changes

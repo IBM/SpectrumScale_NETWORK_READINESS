@@ -9,8 +9,15 @@ import re
 import threading
 import subprocess
 
+try:
+    raw_input      # Python 2
+    PYTHON3 = False
+except NameError:  # Python 3
+    raw_input = input
+    PYTHON3 = True
+
 # Regular expressions
-IPPATT = re.compile(r'.*inet\s+(?P<ip>.*)\/\d+')
+IPPATT = re.compile(r'inet\s+(?P<ip>\d+[\.]\d+[\.]\d+[\.]\d+)')
 
 # Subroutines
 
@@ -267,6 +274,7 @@ def getNetData(allNodes):
             r"\s+\d+\s+\d+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+TX: bytes  " \
             r"packets  errors  dropped carrier collsns\s+\d+\s+\d+\s+(\d+)" \
             r"\s+(\d+)\s+(\d+)\s+(\d+)"
+
         ipLink = re.search(ipLinkFormat, ipLinkInfo)
         if (not ipLink):
             halt("Error, cannot match for network related data in "
@@ -375,8 +383,13 @@ def chkcmdLiveOutput(cmd):
         line = p.stdout.readline()
         rc = p.poll()
         line = line.rstrip()
-        log(line)
-        lines.append(line)
+        if PYTHON3:
+            strline = ''.join(chr(x) for x in line)
+            log(line)
+            lines.append(strline)
+        else:
+            log(line)
+            lines.append(line)
     if (rc):
         halt("Error, command failed with rc = %s" % (rc))
     out = '\n'
@@ -396,14 +409,17 @@ def chkcmd(cmd):
 def runcmd(cmd):
     cmd.rstrip()
     log("CMD: %s" % (cmd))
-    if (re.search("2>&1", cmd)):
+    if (re.search("2>&1", str(cmd))):
         cmd = cmd + " 2>&1"
     p = subprocess.Popen(
         cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     [out, err] = p.communicate()
     rc = p.returncode
-    return [rc, out, err]
-
+    if PYTHON3:
+        strout = ''.join(chr(x) for x in out)
+        return [rc, strout, err]
+    else:
+        return [rc, out, err]
 
 def killer(node, string):
     runcmd("%s %s killall %s" % (ssh, node, string))
@@ -461,8 +477,8 @@ for op, value in opts:
         nsdperfPath = value
     elif op in ("-p", "--rdmaPorts"):
         try:
-            conf["rdmaPorts"] = json.loads(value)
-        except Exception:
+            conf["rdmaPorts"] = json.loads(str(value))
+        except Exception as e:
             log("I get non-json format --rdmaPorts input: <%s>" % value)
             log("Set it to be the RDMA ports for all nodes")
             rdmaPorts = {}

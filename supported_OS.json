@@ -7,7 +7,8 @@
   "Red Hat Enterprise Linux Server 7.4": "NOK",
   "Red Hat Enterprise Linux Server 7.5": "OK",
   "Red Hat Enterprise Linux Server 7.6": "OK",
-  "Red Hat Enterprise Linux Server 7.7": "NOK",
+  "Red Hat Enterprise Linux Server 7.7": "OK",
+  "Red Hat Enterprise Linux 8.0": "OK",
   "CentOS Linux 7.5.1804": "OK",
   "CentOS Linux 7.6.1810": "OK"
 }

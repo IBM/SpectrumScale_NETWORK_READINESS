@@ -2,7 +2,9 @@
 This tool will run a network test across multiple nodes and compare the results against IBM Spectrum Scale Key Performance Indicators (KPI).
 This tool attempts to hide much of the complexity of running network measurement tools, and present the results in an easy to interpret way.
 
-**NOTE:** The IP addresses to be defined into the test should be the ones that would be part of the admin network on Spectrum Scale.
+**NOTE:** This test can require a long time to execute, depending on the number of nodes. This tool will display an estimated  runtime at startup.
+
+**WARNING:** This is a network stress tool, hence it will stress the network. If you are using the network for some other service while running this tool you might feel service degradation. This tool, as stated on the license, it comes with no warranty of any kind.
 
 So to run the test with a JSON file already populated with the admin IP addresses: (look at the example already populated one)
 
@@ -21,13 +23,9 @@ To run the test without a JSON file already populated with the admin IP addresse
 # ./koet.py --hosts 10.10.12.92,10.10.12.93,10.10.12.94,10.10.12.95 --save-hosts
 ```
 
-**NOTE:** This test can require a long time to execute, depending on the number of nodes. This tool will display an estimated  runtime at startup.
-
-**WARNING:** This is a network stress tool, hence it will stress the network. If you are using the network for some other service while running this tool you might feel service degradation. This tool, as stated on the license, it comes with no warranty of any kind.
-
 Remarks:
   - The host where this tool is locally run must be part of the testbed of hosts being tested
-  - This tool runs on RedHat 7.5/7.6 on x86_64 and ppc64le architectures.
+  - This tool runs on RedHat 7.5/7.6/7.7/8.0 on x86_64 and ppc64le architectures.
   - Only Python standard libraries are used.
   - fping, gcc-c++ and psmisc must be installed on all nodes that participate in the test.  This tool will log an error if a required package is missing from any node.
   - SSH root passwordless access must be configured from the node that runs the tool to all the nodes that participate in the tests. This tool will log an error if any node does not meet this requirement.
@@ -38,7 +36,9 @@ Remarks:
   - This tool returns 0 if all tests are passed in all nodes, and returns an integer > 0 if any errors are detected.
   - TCP port 6668 needs to be reachable and not in use in all nodes.
   - This tool needs to be run on a local filesystem.
-  - For RDMA tests all Mellanox ports in the system, regardless they are part of the test or not, must be on Infiniband mode, not on Ethernet mode
+  - For RDMA tests all Mellanox ports in the system, regardless they are part of the test or not, must be on Infiniband mode, not on Ethernet mode.
+  - When using RDMA the IP addresses to be defined into the test should be the ones that would be part of the admin network on Spectrum Scale. When not using RDMA should be the ones to be on the daemon network.
+  - When using RedHat Enterprise Linux 8 series you **must** select a default python version with the command: *alternatives --config python*
 
 KNOWN ISSUES:
   - There are no known issues at this time. If you encounter problems please contact open an issue in our repository (https://github.ibm.com/SpectrumScaleTools/ECE_NETWORK_READINESS/issues)
@@ -46,7 +46,6 @@ KNOWN ISSUES:
 TODO:
   - Add precompiled versions of throughput tool so no compiling is needed
   - Add an option to load previous test results and compare
-  - Test RedHat 7.7 and 8.0
 
 Usage statement:
 ```

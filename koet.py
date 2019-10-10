@@ -49,7 +49,7 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.5"
+KOET_VERSION = "1.6"
 
 
 def load_json(json_file_str):
@@ -299,7 +299,7 @@ def show_header(koet_h_version, json_version,
               " to get latest versions and report issues about this tool.")
         print("")
         print(
-            "The purpose of KOET is to obtain IPv4 network metrics " +
+            "The purpose of KOET is to obtain network metrics " +
             "for a number of nodes.")
         print("")
         lat_kpi_ok, fping_kpi_ok, perf_kpi_ok, perf_rt_ok = check_kpi_is_ok(
@@ -402,6 +402,7 @@ def show_header(koet_h_version, json_version,
 
 
 def check_os_redhat(os_dictionary):
+    redhat8 = False
     # Check redhat-release vs dictionary list
     redhat_distribution = platform.linux_distribution()
     redhat_distribution_str = redhat_distribution[0] + \
@@ -410,15 +411,17 @@ def check_os_redhat(os_dictionary):
         redhat_distribution_str + " is not a supported OS for this tool\n"
     try:
         if os_dictionary[redhat_distribution_str] == 'OK':
-            print(GREEN + "OK: " + NOCOLOR + redhat_distribution_str +
-                  " is a supported OS for this tool")
-            print
+            #print(GREEN + "OK: " + NOCOLOR + redhat_distribution_str +
+            #      " is a supported OS for this tool")
+            #print("")
+            if redhat_distribution[1] == "8.0":
+                redhat8 = True
         else:
             sys.exit(error_message)
-            print
-    except Exception:
+    except Exception as e:
         sys.exit(error_message)
         print("")
+    return redhat8
 
 
 def get_json_versions(
@@ -1611,7 +1614,19 @@ def main():
     # JSON loads
     os_dictionary = load_json("supported_OS.json")
     packages_dictionary = load_json("packages.json")
-    packages_rdma_dictionary = load_json("packages_rdma.json")
+
+    # Check OS
+    linux_distribution = check_distribution()
+    if linux_distribution in ["redhat", "centos"]:
+        redhat8 = check_os_redhat(os_dictionary)
+    else:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "this is not a supported Linux distribution for this tool\n")
+    if redhat8:
+        packages_rdma_dictionary = load_json("packages_rdma_rh8.json")
+    else:
+        packages_rdma_dictionary = load_json("packages_rdma.json")
+
     if not cli_hosts:
         hosts_dictionary = load_json("hosts.json")
 
@@ -1635,15 +1650,6 @@ def main():
     if save_hosts:
         write_json_file_from_dictionary(hosts_dictionary, "hosts.json")
 
-    # Checks
-    # Check OS
-    linux_distribution = check_distribution()
-
-    if linux_distribution == "redhat" or "centos":
-        check_os_redhat(os_dictionary)
-    else:
-        sys.exit(RED + "QUIT: " + NOCOLOR +
-                 "this is not a supported Linux distribution for this tool\n")
 
     # Check local node is included on the test
     check_localnode_is_in(hosts_dictionary)
