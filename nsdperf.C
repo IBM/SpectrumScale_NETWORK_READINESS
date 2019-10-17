@@ -5,7 +5,6 @@
   See the README file for information about building and running
   this program.
 
-
   Changes in version 1.28:
 
     * Use a global table to hold pending replies.  The table is split into
@@ -274,8 +273,6 @@ GlobalVerbs_t GlobalVerbs __CACHE_LINE_ALIGNED__ =
 // Message ID type
 typedef UInt32 MsgId;
 
-typedef UInt32 TesterId;
-
 // Program version
 static const string version = "1.28";
 
@@ -312,7 +309,7 @@ static const int MAXRDMA_UNLIMITED = INT_MAX;
 static const int MAX_PARALLEL = MAX_POLLFD_NUM - 1;
 
 // Size of a message header
-static const unsigned int MSG_HDRSIZE = 4 * sizeof(UInt32) + 4 * sizeof(HTime);
+static const unsigned int MSG_HDRSIZE = 4 * sizeof(UInt32) + 6 * sizeof(HTime);
 
 // Magic number for message headers
 static const UInt32 MSG_MAGIC = 0x1F2E3D4CU;
@@ -448,6 +445,8 @@ struct RdmaAddr
 // Structure to record time line of each message
 struct TimeLine
 {
+  HTime rdStartStamp;
+  HTime rdFinStamp;
   HTime msgSendStamp;     // Time stamp when message is sent on sender side
   HTime msgRecvStamp;     // Time stamp when message is received and recognized on receiver side
   HTime replySendStamp;     // Time stamp when message is sent on sender side
@@ -455,6 +454,8 @@ struct TimeLine
 
   TimeLine()
   {
+    rdStartStamp = 0;
+    rdFinStamp = 0;
     msgSendStamp = 0;
     msgRecvStamp = 0;
     replySendStamp = 0;
@@ -465,7 +466,8 @@ struct TimeLine
 
   HTime getNetworkDelay()
   {
-    return (replyRecvStamp - msgSendStamp - (replySendStamp - msgRecvStamp));
+    return (rdFinStamp - rdStartStamp + replyRecvStamp - msgSendStamp - \
+      (replySendStamp - msgRecvStamp));
   }
 };
 
@@ -1173,7 +1175,6 @@ public:
 class Tester : public Thread
 {
   TestReq *reqP;
-  TesterId testerId;
 
 public:
   Tester() : reqP(NULL) {}
@@ -1286,7 +1287,6 @@ static unsigned int nThreadsStarted = 0;
 static vector<Receiver *> receiverTab;
 static vector<Receiver *>::iterator nextReceiver;
 static MsgId nextMsgId = 1;
-static TesterId nextTesterId = 1;
 static unsigned int nReceiversRunning = 0;
 static bool receiverRun = false;
 static bool cmdInProgress = false;
@@ -1791,6 +1791,8 @@ void DataBuff::putString(string s)
 
 void DataBuff::putTimeLine(TimeLine *timeLine)
 {
+  putHTime(timeLine->rdStartStamp);
+  putHTime(timeLine->rdFinStamp);
   putHTime(timeLine->msgSendStamp);
   putHTime(timeLine->msgRecvStamp);
   putHTime(timeLine->replySendStamp);
@@ -1888,6 +1890,8 @@ string DataBuff::getString()
 TimeLine* DataBuff::getTimeLine()
 {
   TimeLine *timeLine = new TimeLine();
+  timeLine->rdStartStamp = getHTime();
+  timeLine->rdFinStamp = getHTime();
   timeLine->msgSendStamp = getHTime();
   timeLine->msgRecvStamp = getHTime();
   timeLine->replySendStamp = getHTime();
@@ -2617,6 +2621,8 @@ static void rdmaMemoryAlloc(int nConnections)
     Error("RDMA memory pool allocation failed");
   memset(memoryPoolP, 0, memoryPoolLen);
   char *poolPosP = memoryPoolP;
+
+  memoryPoolBase = RdmaAddr(memoryPoolP);
 
   // Register the entire pool on each device
   int accFlags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ |
@@ -4133,6 +4139,8 @@ void RdmaConn::rdRecv(PollWait *pwaitP, unsigned int len)
   rmsgP->msgId   = static_cast<MsgId>(db.getUInt32());
   rmsgP->msgType = static_cast<MType>(db.getUInt32());
   rmsgP->rconnNdx = rconnNdx;
+  db.getUInt32(); // Drop unused data length
+  rmsgP->timeLine = db.getTimeLine();
   if (len > MSG_HDRSIZE)
   {
     rmsgP->msgBuff.newBuff(len - MSG_HDRSIZE);
@@ -6433,8 +6441,10 @@ void RcvMsg::handleNwrite(MsgWorker *mwP)
     if (mwP->rdBuffP == NULL || mwP->rdLen != buffsize)
       Error("bad RDMA buffer in handleNwrite");
     if (rlen != mwP->rdLen)
-      Error("incorect buffer size in handleNwrite");
+      Error("incorrect buffer size in handleNwrite");
+    timeLine->rdStartStamp = getStamp();
     connP->rdmaRead(raddr, rlen, mwP->rdBuffP, &mwP->pwait);
+    timeLine->rdFinStamp = getStamp();
     db.initBuff(mwP->rdBuffP, mwP->rdLen);
     if (db.getBufflen() >= sizeof(UInt64))
       seed = db.getUInt64();
@@ -6518,7 +6528,9 @@ void RcvMsg::handleRead(MsgWorker *mwP)
   {
     RdmaAddr raddr = msgBuff.getRdmaAddr();
     UInt32 rlen = msgBuff.getUInt32();
+    timeLine->rdStartStamp = getStamp();
     connP->rdmaWrite(&mwP->rtestBuff, raddr, rlen, &mwP->pwait);
+    timeLine->rdFinStamp = getStamp();
     sendReply(NULL, errText, &mwP->pwait);
   }
   else
@@ -7571,7 +7583,7 @@ int Tester::threadBody()
         case ttSwrite:
           if (useRdma == rOff)
           {
-            replyP = targP->sendm(mtWrite, &testBuff);
+            replyP = targP->sendm(mtWrite, &testBuff, NULL, NULL, 0, timeLine);
           }
 #ifdef RDMA
           else if (useRdma == rInline)
@@ -7581,7 +7593,7 @@ int Tester::threadBody()
             // auxBuff so that it won't be copied in sendit().
             db.initBuff(NULL, 0);
             db.setAux(testBuff.getBuffP(), testBuff.getBufflen());
-            replyP = targP->sendm(mtWrite, &db, &pwait);
+            replyP = targP->sendm(mtWrite, &db, &pwait, NULL, 0, timeLine);
             db.setAux(NULL, 0);
           }
           else
@@ -7589,13 +7601,15 @@ int Tester::threadBody()
             // Write directly to remote buffer
             if (tBuff == 0)
               Error("remote RDMA buffer missing");
+            timeLine->rdStartStamp = getStamp();
             targP->connP->rdmaWrite(&testBuff, tBuff, buffsize, &pwait);
+            timeLine->rdFinStamp = getStamp();
 
             // Tell the other side where we wrote the data
             db.newBuff(sizeof(RdmaAddr) + sizeof(UInt32));
             db.putRdmaAddr(tBuff);
             db.putUInt32(buffsize);
-            replyP = targP->sendm(mtRdmaWrite, &db, &pwait);
+            replyP = targP->sendm(mtRdmaWrite, &db, &pwait, NULL, 0, timeLine);
           }
 #endif
           break;
@@ -7649,9 +7663,9 @@ int Tester::threadBody()
         timeLine = replyP->timeLine;
         HTime networkDelay = timeLine->getNetworkDelay();
         reqP->lat.addEntry(networkDelay);
-        //output format: msgId,
-        //cout << replyP->msgId << "," << timeLine->msgSendStamp << "," << timeLine->msgRecvStamp << "," << timeLine->replySendStamp << "," << timeLine->replyRecvStamp << ","
-        //    << networkDelay << endl;
+        //DEBUG output:
+        //cout << replyP->msgId << "," << timeLine->rdStartStamp << "," << timeLine->rdFinStamp << "," << timeLine->msgSendStamp << "," << timeLine->msgRecvStamp << "," << timeLine->replySendStamp << "," << timeLine->replyRecvStamp << ","
+        //  << networkDelay << endl;
       }
 
       if (verify)

@@ -38,6 +38,7 @@ Remarks:
   - This tool needs to be run on a local filesystem.
   - For RDMA tests all Mellanox ports in the system, regardless they are part of the test or not, must be on Infiniband mode, not on Ethernet mode.
   - When using RDMA the IP addresses to be defined into the test should be the ones that would be part of the admin network on Spectrum Scale. When not using RDMA should be the ones to be on the daemon network.
+  - When using RDMA ports that are tested must be up as shown by [*ibdev2netdev*](https://community.mellanox.com/s/article/ibdev2netdev)
   - When using RedHat Enterprise Linux 8 series you **must** select a default python version with the command: *alternatives --config python*
 
 KNOWN ISSUES:
