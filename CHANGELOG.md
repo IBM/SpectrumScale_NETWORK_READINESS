@@ -31,3 +31,9 @@ Changelog:
 - 1.6
     - Added support for RHEL 8.0 and RHEL 7.7
     - Minor cosmetic changes
+
+- 1.7
+    - More accurate RDMA NSD latency calculation
+    - Added check for POSIX ACL of needed files
+    - Add warning about RDMA ports UP state as reported by ibdev2netdev
+    - Minor cosmetic changes

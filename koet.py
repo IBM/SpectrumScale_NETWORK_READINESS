@@ -49,7 +49,7 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.6"
+KOET_VERSION = "1.7"
 
 
 def load_json(json_file_str):
@@ -515,6 +515,40 @@ def check_tcp_port_free(hosts_dictionary, tcpport):
     if errors > 0:
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "TCP port " + str(tcpport) + " is not free in all hosts")
+
+def check_permission_files():
+    #Check executable bits and read bits for files
+    readable_files=["hosts.json", "makefile", "nsdperf.C", "packages.json",
+                    "packages_rdma.json", "packages_rdma_rh8.json",
+                    "supported_OS.json"]
+    executable_files=["nsdperfTool.py"]
+
+    read_error = False
+    for file in readable_files:
+        if not os.access(file,os.R_OK):
+            read_error = True
+            print(RED +
+                  "ERROR: " +
+                  NOCOLOR +
+                  "cannot read file " +
+                  str(file) +
+                  ". Have the POSIX ACL been changed?")
+    exec_error = False
+    for file in executable_files:
+        if not os.access(file,os.X_OK):
+            exec_error = True
+            print(RED +
+                  "ERROR: " +
+                  NOCOLOR +
+                  "cannot execute file " +
+                  str(file) +
+                  ". Have the POSIX ACL been changed?")
+
+    if read_error or exec_error:
+        fatal_error = True
+    else:
+        fatal_error = False
+    return fatal_error
 
 
 def host_packages_check(hosts_dictionary, packages_dictionary):
@@ -1603,6 +1637,12 @@ def print_end_summary(a_avg_fp_err, a_nsd_err, lat_kpi_ok,
 
 
 def main():
+    #Check files permissions
+    fatal_error = check_permission_files()
+    if fatal_error:
+        sys.exit(RED + "QUIT: " + NOCOLOR + "there are files with "+
+                 "unexpected permissions or non existing\n")
+                 
     # Parsing input
     max_avg_latency, fping_count, perf_runtime, min_nsd_throughput, \
          cli_hosts, hosts_dictionary, rdma_test, rdma_ports_list, \

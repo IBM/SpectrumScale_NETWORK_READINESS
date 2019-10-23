@@ -16,7 +16,7 @@ except NameError:  # Python 3
     raw_input = input
     PYTHON3 = True
 
-# Regular expressions
+# Regular expressions for IP
 IPPATT = re.compile(r'inet\s+(?P<ip>\d+[\.]\d+[\.]\d+[\.]\d+)')
 
 # Subroutines
@@ -105,9 +105,6 @@ def runTest(server, client):
         localOpts = cliOptions
     output = chkcmdLiveOutput(
         "%s_%s -i %s %s" % (nsdperfexe, localNode, nsdperfCmdFile, localOpts))
-    err = re.search("Error reply from", output)
-    if (err):
-        halt("Error, nsdperf test seems failed, please check command output")
     log("Get retransmit and packet loss data after test")
     netDataAfter = getNetData(client)
     netData = {}
@@ -126,8 +123,8 @@ def makeCmds(server, client):
     joinStr = " "
     servers = joinStr.join(server)
     clients = joinStr.join(client)
+    # File based options to nsdperf
     cmdsInFile = "server %s\nclient %s\n" % (servers, clients)
-    #File based options to nsdperf
     if (conf["ttime"]):
         cmdsInFile = cmdsInFile + "ttime %s\n" % (conf["ttime"])
     if (conf["testerThr"]):
@@ -144,7 +141,7 @@ def makeCmds(server, client):
     cmdFile = open(nsdperfCmdFile, 'w')
     cmdFile.write(cmdsInFile)
     cmdFile.close()
-    #Parameters based to nsdperf
+    # Parameters based to nsdperf
     if (conf["receiverThr"]):
         cliOptions = cliOptions + "-t %s " % (conf["receiverThr"])
     if (conf["workerThr"]):
@@ -172,6 +169,7 @@ def parseOutput(server, client, output, netData):
     pattern = r"(\d+)-(\d+) (\w+) ([\d\.]+) MB/sec \(([\d\.]+) msg/sec\), " \
         r"cli (\d+\%) srv (\d+\%), time (\d+), buff (\d+)(.*)([\S\s]*?" \
         r"(network delay times[\S\s]*?msec  nevents\s*(\s*\d+ *\d+\s*)*\s+)+)"
+    resultSize = 0
     for match in (re.finditer(pattern, output)):
         result = {"server(s)": server, "client(s)": client}
         result["nServer"] = match.group(1)
@@ -219,8 +217,12 @@ def parseOutput(server, client, output, netData):
 
         result["netData"] = netData
         outputJson = json.dumps(result)
+        resultSize += sys.getsizeof(outputJson)
         resultFile.write(outputJson)
     resultFile.close()
+    # Detect nsdperf test errors
+    if (not resultSize):
+        halt("Error, nsdperf test seems failed, please check command output")
 
 
 def getLocalNode(allNodes):
@@ -422,7 +424,7 @@ def runcmd(cmd):
         return [rc, out, err]
 
 def killer(node, string):
-    runcmd("%s %s killall %s" % (ssh, node, string))
+    runcmd("%s %s killall -r .*%s.*" % (ssh, node, string))
 
 
 # ========== main ==========
