@@ -40,6 +40,6 @@ Changelog:
 
 - 1.8
     - Lower severity of ICMP latency results when using RDMA
-    - Added check for
+    - Added check for firewalld
     - Added LogLevel=error for ssh connections to ignore banners
     - Minor cosmetic changes
