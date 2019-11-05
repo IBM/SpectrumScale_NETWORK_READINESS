@@ -5,11 +5,11 @@ This tool attempts to hide much of the complexity of running network measurement
 
 **WARNING:** This is a network stress tool, hence it will stress the network. If you are using the network for some other service while running this tool you might feel service degradation. This tool, as stated on the license, it comes with no warranty of any kind.
 
-**PREREQUESITES:** Before running this tool you **must** install the software prerequesites. Those are:
+**PREREQUISITES:** Before running this tool you **must** install the software prerequisites. Those are:
 
 * gcc-c++, psmisc, and fping
 
-The tool expects the SW to be installed as RPM package, and checks for those if you install those by other means you can still run this tool by using the ***--rpm_check_disabled*** flag. But only if you installed the prequisites, the tool would crash if the SW is not installed and you disable the checks.
+The tool expects the SW to be installed as RPM package, and checks for those if you install those by other means you can still run this tool by using the ***--rpm_check_disabled*** flag. But only if you installed the prerequisites, the tool would crash if the SW is not installed and you disable the checks.
 
 The gcc-c++ and psmisc RPM packages can be found on the [rhel-7-server-rpms](https://access.redhat.com/solutions/265523)  repository
 
@@ -27,6 +27,7 @@ Remarks:
   - This tool generates a log directory with all the raw data output for future comparisons
   - This tool returns 0 if all tests are passed in all nodes, and returns an integer > 0 if any errors are detected.
   - TCP port 6668 needs to be reachable and not in use in all nodes.
+  - Firewalld must be not running during the test.
   - This tool needs to be run on a local filesystem.
   - For RDMA tests all Mellanox ports in the system, regardless they are part of the test or not, must be on Infiniband mode, not on Ethernet mode.
   - When using RDMA the IP addresses to be defined into the test should be the ones that would be part of the admin network on Spectrum Scale. When not using RDMA should be the ones to be on the daemon network.

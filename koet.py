@@ -8,7 +8,6 @@ import subprocess
 import platform
 import shlex
 import time
-import socket
 from shutil import copyfile
 from decimal import Decimal
 import argparse
@@ -49,7 +48,7 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.7"
+KOET_VERSION = "1.8"
 
 
 def load_json(json_file_str):
@@ -472,6 +471,8 @@ def ssh_rpm_is_installed(host, rpm_package):
         return_code = subprocess.call(['ssh',
                                        '-o',
                                        'StrictHostKeyChecking=no',
+                                       '-o',
+                                       'LogLevel=error',
                                        host,
                                        'rpm',
                                        '-q',
@@ -482,6 +483,58 @@ def ssh_rpm_is_installed(host, rpm_package):
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "cannot run rpm over ssh on host " + host)
     return return_code
+
+
+def ssh_service_is_up(host, service_name):
+    try:
+        return_code = subprocess.call(['ssh',
+                                       '-o',
+                                       'StrictHostKeyChecking=no',
+                                       '-o',
+                                       'LogLevel=error',
+                                       host,
+                                       'systemctl',
+                                       'is-active',
+                                       '--quiet',
+                                       service_name],
+                                      stdout=DEVNULL,
+                                      stderr=DEVNULL)
+    except Exception:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "cannot run systemctl over ssh on host " + host)
+    if return_code == 0:
+        service_is_up = True
+    else:
+        service_is_up = False
+
+    return service_is_up
+
+
+def firewalld_check(hosts_dictionary):
+    # Checks if if firewalld is up on any node
+    errors = 0
+    for host in hosts_dictionary.keys():
+        firewalld_is_up = ssh_service_is_up(host, "firewalld")
+        if firewalld_is_up:
+            print(
+                RED +
+                "ERROR: " +
+                NOCOLOR +
+                "on host " +
+                host +
+                " the firewalld service is running")
+            errors = errors + 1
+        else:
+            print(
+                 GREEN +
+                 "OK: " +
+                 NOCOLOR +
+                 "on host " +
+                 host +
+                 " the firewalld service is not running" )
+    if errors > 0:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "Fix the firewalld status before running this tool again.\n")
 
 
 def check_tcp_port_free(hosts_dictionary, tcpport):
@@ -515,6 +568,7 @@ def check_tcp_port_free(hosts_dictionary, tcpport):
     if errors > 0:
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "TCP port " + str(tcpport) + " is not free in all hosts")
+
 
 def check_permission_files():
     #Check executable bits and read bits for files
@@ -592,6 +646,8 @@ def ssh_file_exists(host, fileurl):
         return_code = subprocess.call(['ssh',
                                        '-o',
                                        'StrictHostKeyChecking=no',
+                                       '-o',
+                                       'LogLevel=error',
                                        host,
                                        'ls',
                                        '-1',
@@ -610,6 +666,8 @@ def ssh_rdma_ports_are_up(host, rdma_ports_list):
         return_code = subprocess.call(['ssh',
                                        '-o',
                                        'StrictHostKeyChecking=no',
+                                       '-o',
+                                       'LogLevel=error',
                                        host,
                                        '/usr/bin/ibdev2netdev',
                                        '|',
@@ -651,7 +709,8 @@ def ssh_rdma_ports_are_up(host, rdma_ports_list):
 def check_rdma_port_mode(hosts_ports_dict):
     errors = 0
     for host in hosts_ports_dict.keys():
-        ssh_command = 'ssh -o StrictHostKeyChecking=no ' + host + ' '
+        ssh_command = ('ssh -o StrictHostKeyChecking=no ' + 
+                       '-o LogLevel=error ' + host + ' ')
         # we remove the port bit
         for port in hosts_ports_dict[host].keys():
             card_str = str(hosts_ports_dict[host][port].split('/')[0])
@@ -679,7 +738,8 @@ def check_rdma_port_mode(hosts_ports_dict):
 
 def map_ib_to_mlx(host, rdma_ports_list):
     port_pair_dict = {}
-    ssh_command = 'ssh -o StrictHostKeyChecking=no ' + host + ' '
+    ssh_command = ('ssh -o StrictHostKeyChecking=no ' +
+                   '-o LogLevel=error ' + host + ' ')
     try:
         raw_os = os.popen(
                         ssh_command +
@@ -721,6 +781,8 @@ def check_rdma_ports_OS(host, port):
         return_code = subprocess.call(['ssh',
                                        '-o',
                                        'StrictHostKeyChecking=no',
+                                       '-o',
+                                       'LogLevel=error',
                                        host,
                                        'ifconfig',
                                        port],
@@ -891,6 +953,8 @@ def create_log_dir(hosts_dictionary, log_dir_timestamp):
         return_code = subprocess.call(['ssh',
                                        '-o',
                                        'StrictHostKeyChecking=no',
+                                       '-o',
+                                       'LogLevel=error',
                                        host,
                                        'mkdir',
                                        '-p',
@@ -937,8 +1001,8 @@ def latency_test(hosts_dictionary, logdir, fping_count):
         print("")
         print("Starting ping run from " + srchost + " to all nodes")
         fileurl = os.path.join(logdir, "lat_" + srchost + "_" + "all")
-        command = "ssh -o StrictHostKeyChecking=no " + srchost + \
-            " fping -C " + fping_count_str + " -q -A " + hosts_fping
+        command = "ssh -o StrictHostKeyChecking=no -o LogLevel=error " + \
+            srchost + " fping -C " + fping_count_str + " -q -A " + hosts_fping
         with open(fileurl, 'wb', 0) as logfping:
             runfping = subprocess.Popen(shlex.split(
                 command), stderr=subprocess.STDOUT, stdout=logfping)
@@ -1412,7 +1476,8 @@ def fping_KPI(
         test_string,
         max_avg_latency,
         max_max_latency,
-        max_stddev_latency):
+        max_stddev_latency,
+        rdma_test):
     errors = 0
 
     print("Results for ICMP latency test " + test_string + "")
@@ -1421,19 +1486,33 @@ def fping_KPI(
     max_stddev_latency_str = str(round(max_stddev_latency, 2))
     for host in fping_dictionary.keys():
         if fping_dictionary[host] >= max_avg_latency:
-            errors = errors + 1  # yes yes +=
-            print(RED +
-                  "ERROR: " +
-                  NOCOLOR +
-                  "on host " +
-                  host +
-                  " the " +
-                  test_string +
-                  " average ICMP latency is " +
-                  str(fping_dictionary[host]) +
-                  " msec. Which is higher than the KPI of " +
-                  max_avg_latency_str +
-                  " msec")
+            if rdma_test:
+                print(YELLOW +
+                      "WARNING: " +
+                      NOCOLOR +
+                      "on host " +
+                      host +
+                      " the " +
+                      test_string +
+                      " average ICMP latency is " +
+                      str(fping_dictionary[host]) +
+                      " msec. Which is higher than the KPI of " +
+                      max_avg_latency_str +
+                      " msec")
+            else:
+                errors = errors + 1  # yes yes +=
+                print(RED +
+                      "ERROR: " +
+                      NOCOLOR +
+                      "on host " +
+                      host +
+                      " the " +
+                      test_string +
+                      " average ICMP latency is " +
+                      str(fping_dictionary[host]) +
+                      " msec. Which is higher than the KPI of " +
+                      max_avg_latency_str +
+                      " msec")
         else:
             print(GREEN +
                   "OK: " +
@@ -1449,19 +1528,33 @@ def fping_KPI(
                   " msec")
 
         if fping_dictionary_max[host] >= max_max_latency:
-            errors = errors + 1
-            print(RED +
-                  "ERROR: " +
-                  NOCOLOR +
-                  "on host " +
-                  host +
-                  " the " +
-                  test_string +
-                  " maximum ICMP latency is " +
-                  str(fping_dictionary_max[host]) +
-                  " msec. Which is higher than the KPI of " +
-                  max_max_latency_str +
-                  " msec")
+            if rdma_test:
+                print(YELLOW +
+                      "WARNING: " +
+                      NOCOLOR +
+                      "on host " +
+                      host +
+                      " the " +
+                      test_string +
+                      " maximum ICMP latency is " +
+                      str(fping_dictionary_max[host]) +
+                      " msec. Which is higher than the KPI of " +
+                      max_max_latency_str +
+                      " msec")
+            else:
+                errors = errors + 1
+                print(RED +
+                      "ERROR: " +
+                      NOCOLOR +
+                      "on host " +
+                      host +
+                      " the " +
+                      test_string +
+                      " maximum ICMP latency is " +
+                      str(fping_dictionary_max[host]) +
+                      " msec. Which is higher than the KPI of " +
+                      max_max_latency_str +
+                      " msec")
         else:
             print(GREEN +
                   "OK: " +
@@ -1477,19 +1570,33 @@ def fping_KPI(
                   " msec")
 
         if fping_dictionary_min[host] >= max_avg_latency:
-            errors = errors + 1
-            print(RED +
-                  "ERROR: " +
-                  NOCOLOR +
-                  "on host " +
-                  host +
-                  " the " +
-                  test_string +
-                  " minimum ICMP latency is " +
-                  str(fping_dictionary_min[host]) +
-                  " msec. Which is higher than the KPI of " +
-                  max_avg_latency_str +
-                  " msec")
+            if rdma_test:
+                print(YELLOW +
+                      "WARNING: " +
+                      NOCOLOR +
+                      "on host " +
+                      host +
+                      " the " +
+                      test_string +
+                      " minimum ICMP latency is " +
+                      str(fping_dictionary_min[host]) +
+                      " msec. Which is higher than the KPI of " +
+                      max_avg_latency_str +
+                      " msec")
+            else:
+                errors = errors + 1
+                print(RED +
+                      "ERROR: " +
+                      NOCOLOR +
+                      "on host " +
+                      host +
+                      " the " +
+                      test_string +
+                      " minimum ICMP latency is " +
+                      str(fping_dictionary_min[host]) +
+                      " msec. Which is higher than the KPI of " +
+                      max_avg_latency_str +
+                      " msec")
         else:
             print(GREEN +
                   "OK: " +
@@ -1505,19 +1612,33 @@ def fping_KPI(
                   " msec")
 
         if fping_dictionary_stddev[host] >= max_stddev_latency:
-            errors = errors + 1
-            print(RED +
-                  "ERROR: " +
-                  NOCOLOR +
-                  "on host " +
-                  host +
-                  " the " +
-                  test_string +
-                  " standard deviation of ICMP latency is " +
-                  str(fping_dictionary_stddev[host]) +
-                  " msec. Which is higher than the KPI of " +
-                  max_stddev_latency_str +
-                  " msec")
+            if rdma_test:
+                print(YELLOW +
+                      "WARNING: " +
+                      NOCOLOR +
+                      "on host " +
+                      host +
+                      " the " +
+                      test_string +
+                      " standard deviation of ICMP latency is " +
+                      str(fping_dictionary_stddev[host]) +
+                      " msec. Which is higher than the KPI of " +
+                      max_stddev_latency_str +
+                      " msec")
+            else:
+                errors = errors + 1
+                print(RED +
+                      "ERROR: " +
+                      NOCOLOR +
+                      "on host " +
+                      host +
+                      " the " +
+                      test_string +
+                      " standard deviation of ICMP latency is " +
+                      str(fping_dictionary_stddev[host]) +
+                      " msec. Which is higher than the KPI of " +
+                      max_stddev_latency_str +
+                      " msec")
         else:
             print(GREEN +
                   "OK: " +
@@ -1540,9 +1661,10 @@ def test_ssh(hosts_dictionary):
     for host in hosts_dictionary.keys():
         try:
             ssh_return_code = subprocess.call(['ssh',
-                                               '-oStrictHostKeyChecking=no',
-                                               '-oBatchMode=yes',
+                                               '-o StrictHostKeyChecking=no',
+                                               '-o BatchMode=yes',
                                                '-o ConnectTimeout=5',
+                                               '-o LogLevel=error',
                                                host,
                                                'uname'],
                                               stdout=DEVNULL,
@@ -1642,7 +1764,7 @@ def main():
     if fatal_error:
         sys.exit(RED + "QUIT: " + NOCOLOR + "there are files with "+
                  "unexpected permissions or non existing\n")
-                 
+
     # Parsing input
     max_avg_latency, fping_count, perf_runtime, min_nsd_throughput, \
          cli_hosts, hosts_dictionary, rdma_test, rdma_ports_list, \
@@ -1705,6 +1827,8 @@ def main():
     else:
         host_packages_check(hosts_dictionary, packages_dictionary)
 
+    #Check firewalld is down
+    firewalld_check(hosts_dictionary)
     # Check TCP port 6668 is not in use. Limited from view of this host
     check_tcp_port_free(hosts_dictionary, 6668)
     print("")
@@ -1761,7 +1885,8 @@ def main():
         "1:n",
         max_avg_latency,
         max_max_latency,
-        max_stddev_latency)
+        max_stddev_latency,
+        rdma_test)
     all_nsd_errors = nsd_KPI(min_nsd_throughput, throughput_dict, nsd_lat_dict,
                              nsd_std_dict, pc_diff_bw, max_bw, min_bw,
                              mean_bw, stddev_bw, nsd_rxe_dict, nsd_rxe_m2m_d,

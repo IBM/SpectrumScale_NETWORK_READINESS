@@ -431,7 +431,7 @@ def killer(node, string):
 # Global variables with default value
 nsdperfPath = "/tmp/nsdperf"
 toolPath = os.path.split(os.path.realpath(__file__))[0]
-sshOption = "-o StrictHostKeyChecking=no"
+sshOption = "-o StrictHostKeyChecking=no -o LogLevel=error"
 ssh = "ssh %s" % (sshOption)
 scp = "scp %s" % (sshOption)
 LOG_LOCK = threading.Lock()

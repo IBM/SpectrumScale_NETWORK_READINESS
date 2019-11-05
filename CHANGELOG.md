@@ -37,3 +37,9 @@ Changelog:
     - Added check for POSIX ACL of needed files
     - Add warning about RDMA ports UP state as reported by ibdev2netdev
     - Minor cosmetic changes
+
+- 1.8
+    - Lower severity of ICMP latency results when using RDMA
+    - Added check for
+    - Added LogLevel=error for ssh connections to ignore banners
+    - Minor cosmetic changes
