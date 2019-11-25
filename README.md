@@ -18,6 +18,7 @@ The fping RPM package can be found on the [EPEL](https://fedoraproject.org/wiki/
 Remarks:
 
   - The host where this tool is locally run must be part of the testbed of hosts being tested
+  - As the runtime can be long if you plan to disconnect from the system run the tool with either *screen* or *tmux*. Do not use nohup as it would not spawn the subprocesses correclty
   - This tool runs on RedHat 7.5/7.6/7.7/8.0 on x86_64 and ppc64le architectures.
   - Only Python standard libraries are used.
   - SSH root passwordless access must be configured from the node that runs the tool to all the nodes that participate in the tests. This tool will log an error if any node does not meet this requirement.
