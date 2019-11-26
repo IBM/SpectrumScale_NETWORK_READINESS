@@ -5,6 +5,15 @@ This tool attempts to hide much of the complexity of running network measurement
 
 **WARNING:** This is a network stress tool, hence it will stress the network. If you are using the network for some other service while running this tool you might feel service degradation. This tool, as stated on the license, it comes with no warranty of any kind.
 
+**Running on RHEL 8.x Systems**
+Because RHEL8 does not define python executable, either version 2 or version 3 needs to be defined as default python using the alternatives command:
+
+*alternatives --config python*
+
+You must pick either python2 or python3. This tool will work with either python version.  
+
+An explanation of this can be found in many articles online, for example: https://developers.redhat.com/blog/2018/11/14/python-in-rhel-8/
+
 **PREREQUISITES:** Before running this tool you **must** install the software prerequisites. Those are:
 
 * gcc-c++, psmisc, and fping
@@ -34,6 +43,7 @@ Remarks:
   - When using RDMA the IP addresses to be defined into the test should be the ones that would be part of the admin network on Spectrum Scale. When not using RDMA should be the ones to be on the daemon network.
   - When using RDMA ports that are tested must be up as shown by [*ibdev2netdev*](https://community.mellanox.com/s/article/ibdev2netdev)
   - When using RedHat Enterprise Linux 8 series you **must** select a default python version with the command: *alternatives --config python*
+
 
 To run the test without a JSON file already populated with the Spectrum Scale daemon IP (if RDMA use the admin ones) addresses and generating one JSON for future runs:
 

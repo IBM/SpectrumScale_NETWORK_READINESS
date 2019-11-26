@@ -1153,8 +1153,8 @@ def stddev_list(list, mean):
 def pct_diff_list(bw_str_list):
     # as the rest expects a str
     try:
-        pc_diff_bw = abs(float(min(bw_str_list)) * 100 /
-                         float(max(bw_str_list)))
+        pc_diff_bw = abs(float(min_list(bw_str_list)) * 100 /
+                         float(max_list(bw_str_list)))
     except BaseException:
         sys.exit(
             RED +
