@@ -43,3 +43,6 @@ Changelog:
     - Added check for firewalld
     - Added LogLevel=error for ssh connections to ignore banners
     - Minor cosmetic changes
+
+- 1.9
+    - Fixed issue of nsdperf that made NSD latencies show much bigger than real on x86_64 systems

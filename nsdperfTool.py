@@ -16,6 +16,15 @@ except NameError:  # Python 3
     raw_input = input
     PYTHON3 = True
 
+# Global variables with default value
+nsdperfPath = "/tmp/nsdperf"
+toolPath = os.path.split(os.path.realpath(__file__))[0]
+sshOption = "-o StrictHostKeyChecking=no -o LogLevel=error"
+ssh = "ssh %s" % (sshOption)
+scp = "scp %s" % (sshOption)
+LOG_LOCK = threading.Lock()
+timerWindow = 1200
+
 # Regular expressions for IP
 IPPATT = re.compile(r'inet\s+(?P<ip>\d+[\.]\d+[\.]\d+[\.]\d+)')
 
@@ -125,6 +134,9 @@ def makeCmds(server, client):
     clients = joinStr.join(client)
     # File based options to nsdperf
     cmdsInFile = "server %s\nclient %s\n" % (servers, clients)
+    if (conf["debugLevel"]):
+        cmdsInFile = cmdsInFile + "debug %s\n" % (conf["debugLevel"])
+        cliOptions = cliOptions + "-d "
     if (conf["ttime"]):
         cmdsInFile = cmdsInFile + "ttime %s\n" % (conf["ttime"])
     if (conf["testerThr"]):
@@ -141,7 +153,7 @@ def makeCmds(server, client):
     cmdFile = open(nsdperfCmdFile, 'w')
     cmdFile.write(cmdsInFile)
     cmdFile.close()
-    # Parameters based to nsdperf
+    # Parameters based to nsdperf (except debugLevel)
     if (conf["receiverThr"]):
         cliOptions = cliOptions + "-t %s " % (conf["receiverThr"])
     if (conf["workerThr"]):
@@ -167,8 +179,8 @@ def startServerThr(node, cliOptions):
 def parseOutput(server, client, output, netData):
     resultFile = open(nsdperfResultFile, 'a')
     pattern = r"(\d+)-(\d+) (\w+) ([\d\.]+) MB/sec \(([\d\.]+) msg/sec\), " \
-        r"cli (\d+\%) srv (\d+\%), time (\d+), buff (\d+)(.*)([\S\s]*?" \
-        r"(network delay times[\S\s]*?msec  nevents\s*(\s*\d+ *\d+\s*)*\s+)+)"
+        r"cli (\d+\%) srv (\d+\%), time (\d+), buff (\d+)(.*)(\s*?(\S+ " \
+        r"network delay times[\S\s]*?msec  nevents\s*(\s*\d+ +\d+\s*)*\s+)+)"
     resultSize = 0
     for match in (re.finditer(pattern, output)):
         result = {"server(s)": server, "client(s)": client}
@@ -193,12 +205,12 @@ def parseOutput(server, client, output, netData):
         result["networkDelay"] = []
         delay = {}
         allDelayInfo = match.group(11)
-        oneDelayPattern = r".*?network delay times[\S\s]*?msec  nevents" \
-            r"\s*(\s*\d+ *\d+\s*)*"
+        oneDelayPattern = r"\S+ network delay times[\S\s]*?msec  nevents" \
+            r"\s*(\s*\d+ +\d+\s*)*"
         for oneDelay in (re.finditer(oneDelayPattern, allDelayInfo)):
             detailedDelayPattern = r"(\S+) network delay times \(average " \
                 r"([\d\.]+) msec, median ([\d\.]+) msec, std deviation " \
-                r"([\d\.]+) msec\)\s+msec  nevents\s*((\s*\d+ *\d+\s*)*)"
+                r"([\d\.]+) msec\)\s+msec  nevents\s*((\s*\d+ +\d+\s*)*)"
             detailedDelay = re.search(detailedDelayPattern, oneDelay.group())
             if (detailedDelay):
                 delay = {}
@@ -381,10 +393,12 @@ def chkcmdLiveOutput(cmd):
         cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     lines = []
     rc = p.poll()
-    while rc is None:
+    while True:
         line = p.stdout.readline()
         rc = p.poll()
         line = line.rstrip()
+        if (rc != None and (line == '' or line == b'')):
+            break
         if PYTHON3:
             strline = ''.join(chr(x) for x in line)
             log(line)
@@ -415,38 +429,46 @@ def runcmd(cmd):
         cmd = cmd + " 2>&1"
     p = subprocess.Popen(
         cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    [out, err] = p.communicate()
-    rc = p.returncode
     if PYTHON3:
+        try:
+            [out, err] = p.communicate(timeout = int(conf["ttime"]) + timerWindow)
+        except subprocess.TimeoutExpired:
+            killProcess(p)
+            [out, err] = p.communicate()
+        rc = p.wait()
         strout = ''.join(chr(x) for x in out)
         return [rc, strout, err]
     else:
+        timer = threading.Timer(int(conf["ttime"]) + timerWindow, killProcess, [p])
+        try:
+            timer.start()
+            [out, err] = p.communicate()
+        finally:
+            timer.cancel()
+        rc = p.wait()
         return [rc, out, err]
+
+def killProcess(process):
+    log("Warning: test command not completing within (ttime + timerWindow), killing the subprocess")
+    process.kill()
 
 def killer(node, string):
     runcmd("%s %s killall -r .*%s.*" % (ssh, node, string))
 
 
 # ========== main ==========
-# Global variables with default value
-nsdperfPath = "/tmp/nsdperf"
-toolPath = os.path.split(os.path.realpath(__file__))[0]
-sshOption = "-o StrictHostKeyChecking=no -o LogLevel=error"
-ssh = "ssh %s" % (sshOption)
-scp = "scp %s" % (sshOption)
-LOG_LOCK = threading.Lock()
 
 # Obtain command line options
 conf = {'server': '', 'client': '', 'test': '', 'ttime': '', 'buffsize': '',
         'socksize': '', 'receiverThr': '', 'workerThr': '', 'testerThr': '',
-        'rebuild': '', 'directory': '', 'rdmaPorts': ''}
+        'rebuild': '', 'directory': '', 'rdmaPorts': '', 'debugLevel': ''}
 
 try:
     opts, args = getopt.getopt(
-        sys.argv[1:], "hs:c:n:t:l:b:k:R:W:T:rd:p:",
+        sys.argv[1:], "hs:c:n:t:l:b:k:R:W:T:rd:p:v",
         ["help", "server=", "client=", "test=", "testTime=", "buffsize=",
          "socksize=", "nReciverThr=", "nWorkerThr=", "nTesterThr=", "rebuild",
-         "directory=", "rdmaPorts="])
+         "directory=", "rdmaPorts=", "debugLevel"])
 except getopt.GetoptError:
     shortUsage()
     sys.exit(1)
@@ -489,6 +511,8 @@ for op, value in opts:
             for node in conf["client"]:
                 rdmaPorts[node] = value
             conf["rdmaPorts"] = rdmaPorts
+    elif op in ("-v", "--debugLevel"):
+        conf["debugLevel"] = 3
     else:
         log("Error: Unknown option %s" % (op))
         shortUsage()

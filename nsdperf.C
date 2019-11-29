@@ -1475,7 +1475,7 @@ static HTime getStamp()
     return getTime();
   asm volatile("rdtsc" : "=a"(low), "=d"(high));
   tsc = (static_cast<UInt64>(high) << 32) | low;
-  return tsc * 1000000 / cpuMhz;
+  return (HTime)(tsc * (1000000.0 / cpuMhz));
 #else
   return getTime();
 #endif
@@ -7661,11 +7661,17 @@ int Tester::threadBody()
         reqP->totBytes += buffsize + MSG_HDRSIZE;
         // Handle timeLine
         timeLine = replyP->timeLine;
+        // Only take into account if the timestamps are reasonable. Timestamps could overflow and lead to wrong number.
+        // if (timeLine->msgSendStamp <= timeLine->replyRecvStamp && timeLine->msgRecvStamp <= timeLine->replySendStamp \
+        //     && timeLine->rdStartStamp <= timeLine->rdFinStam)
+        // {
         HTime networkDelay = timeLine->getNetworkDelay();
+        Logt(3, "NetworkDelay: " << networkDelay << ", msgId: " << replyP->msgId << \
+                ", rdStart: " << timeLine->rdStartStamp << ", rdFin: " << timeLine->rdFinStamp << \
+                ", msgSend: " << timeLine->msgSendStamp << ", msgRecv: " << timeLine->msgRecvStamp << \
+                ", replySend: " << timeLine->replySendStamp << ", replyRecv: " << timeLine->replyRecvStamp);
         reqP->lat.addEntry(networkDelay);
-        //DEBUG output:
-        //cout << replyP->msgId << "," << timeLine->rdStartStamp << "," << timeLine->rdFinStamp << "," << timeLine->msgSendStamp << "," << timeLine->msgRecvStamp << "," << timeLine->replySendStamp << "," << timeLine->replyRecvStamp << ","
-        //  << networkDelay << endl;
+        // }
       }
 
       if (verify)

@@ -48,7 +48,7 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.8"
+KOET_VERSION = "1.9"
 
 
 def load_json(json_file_str):
@@ -709,7 +709,7 @@ def ssh_rdma_ports_are_up(host, rdma_ports_list):
 def check_rdma_port_mode(hosts_ports_dict):
     errors = 0
     for host in hosts_ports_dict.keys():
-        ssh_command = ('ssh -o StrictHostKeyChecking=no ' + 
+        ssh_command = ('ssh -o StrictHostKeyChecking=no ' +
                        '-o LogLevel=error ' + host + ' ')
         # we remove the port bit
         for port in hosts_ports_dict[host].keys():
