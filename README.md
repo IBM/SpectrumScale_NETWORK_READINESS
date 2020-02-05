@@ -103,7 +103,7 @@ optional arguments:
   --save-hosts          [over]writes hosts.json with the hosts passed with
                         --hosts. It does not prompt for confirmation when
                         overwriting
-  -v, --version         show program's version number and exit
+  -v, --version         show program version number and exit
 ```
 
 An output example:
@@ -142,6 +142,7 @@ Do you want to continue? (y/n):
 ```
 
 At this point you can see the estimated runtime, consider using screen or alike. If you modify the number of fpings or the latency KPI you might see warning messages as below:
+
 ```
 # ./koet.py -l 1.5 -c 100 -p 10 - m 100
 
