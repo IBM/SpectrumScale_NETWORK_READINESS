@@ -33,12 +33,12 @@ Remarks:
   - SSH root passwordless access must be configured from the node that runs the tool to all the nodes that participate in the tests. This tool will log an error if any node does not meet this requirement.
   - The minimum FPING_COUNT value for a valid ECE test must be 500, and a minimum of 10 (defaults to 500).
   - The minimum PERF_RUNTIME value for a valid ECE test must be 1200, and a minimum of 30 (defaults to 1200).
-  - The number of hosts must be between 2 and 64. The upper limit is the tested limit.
+  - The number of hosts must be between 3 and 64. The upper limit is the tested limit.
   - This tool generates a log directory with all the raw data output for future comparisons
   - This tool returns 0 if all tests are passed in all nodes, and returns an integer > 0 if any errors are detected.
   - TCP port 6668 needs to be reachable and not in use in all nodes.
   - Firewalld must be not running during the test.
-  - This tool needs to be run on a local filesystem.
+  - This tool needs to be run on a local filesystem. No NFS, Spectrum Scale or alike.
   - For RDMA tests all Mellanox ports in the system, regardless they are part of the test or not, must be on Infiniband mode, not on Ethernet mode.
   - When using RDMA the IP addresses to be defined into the test should be the ones that would be part of the admin network on Spectrum Scale. When not using RDMA should be the ones to be on the daemon network.
   - When using RDMA ports that are tested must be up as shown by [*ibdev2netdev*](https://community.mellanox.com/s/article/ibdev2netdev)

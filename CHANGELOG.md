@@ -46,3 +46,7 @@ Changelog:
 
 - 1.9
     - Fixed issue of nsdperf that made NSD latencies show much bigger than real on x86_64 systems
+
+- 1.10
+    - Fixed issue with two nodes test on python3. New min number of nodes is 3 (STG Defect 241194)
+    - Mitigated issue of extra SSH lines that messed up the nsdperf wrapper on a corner case of ssh host keys (STG Defect 241193)

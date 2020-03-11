@@ -48,7 +48,7 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.9"
+KOET_VERSION = "1.10"
 
 
 def load_json(json_file_str):
@@ -918,14 +918,14 @@ def check_hosts_are_ips(hosts_dictionary):
 def check_hosts_number(hosts_dictionary):
     number_unique_hosts = len(hosts_dictionary)
     number_unique_hosts_str = str(number_unique_hosts)
-    if len(hosts_dictionary) > 64 or len(hosts_dictionary) < 2:
+    if len(hosts_dictionary) > 64 or len(hosts_dictionary) < 3:
         sys.exit(
             RED +
             "QUIT: " +
             NOCOLOR +
             "the number of hosts is not valid. It is " +
             number_unique_hosts_str +
-            " and should be between 2 and 64 unique hosts.\n")
+            " and should be between 3 and 64 unique hosts.\n")
 
 
 def create_local_log_dir(log_dir_timestamp):
@@ -1688,6 +1688,39 @@ def test_ssh(hosts_dictionary):
                 "cannot run ssh to " +
                 host +
                 ". Please fix this problem before running this tool again")
+
+        # Now lets see if the host keys are OK
+        try:
+            ssh_return_code = subprocess.call(['ssh',
+                                               '-o StrictHostKeyChecking=yes',
+                                               '-o BatchMode=yes',
+                                               '-o ConnectTimeout=5',
+                                               '-o LogLevel=error',
+                                               host,
+                                               'uname'],
+                                              stdout=DEVNULL,
+                                              stderr=DEVNULL)
+            if ssh_return_code == 0:
+                print(GREEN + "OK: " + NOCOLOR +
+                      "SSH with node " + host + " works with strict host key checks")
+            else:
+                sys.exit(
+                    RED +
+                    "QUIT: " +
+                    NOCOLOR +
+                    "cannot run ssh to " +
+                    host +
+                    " with strict host key checks. Please fix this problem " +
+                    "before running this tool again")
+        except Exception:
+            sys.exit(
+                RED +
+                "QUIT: " +
+                NOCOLOR +
+                "cannot run ssh to " +
+                host +
+                " with strict host key checks. Please fix this problem " +
+                "before running this tool again")
     print("")
 
 
@@ -1795,7 +1828,7 @@ def main():
     # Check hosts are IP addresses
     check_hosts_are_ips(hosts_dictionary)
 
-    # Check hosts are 2 to 64
+    # Check hosts are 3 to 64
     check_hosts_number(hosts_dictionary)
 
     # Initial header
