@@ -16,16 +16,6 @@ from math import sqrt, ceil
 from functools import reduce
 import re
 
-try:
-    raw_input      # Python 2
-    PYTHON3 = False
-except NameError:  # Python 3
-    raw_input = input
-    PYTHON3 = True
-
-if PYTHON3:
-    import statistics
-
 # Colorful constants
 RED = '\033[91m'
 GREEN = '\033[92m'
@@ -48,7 +38,22 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.10"
+KOET_VERSION = "1.11"
+
+try:
+    raw_input      # Python 2
+    PYTHON3 = False
+except NameError:  # Python 3
+    raw_input = input
+    PYTHON3 = True
+
+if PYTHON3:
+    import statistics
+    try:
+        import distro
+    except ImportError:
+        sys.exit(RED + "QUIT: " + NOCOLOR +
+                 "Cannot import distro. Check python3-distro is installed\n")
 
 
 def load_json(json_file_str):
@@ -456,7 +461,10 @@ def get_json_versions(
 def check_distribution():
     # Decide if this is a redhat or a CentOS. We only checking the running
     # node, that might be a problem
-    what_dist = platform.dist()[0]
+    if PYTHON3:
+        what_dist = distro.distro_release_info()['id']
+    else:
+        what_dist = platform.dist()[0]
     if what_dist == "redhat" or "centos":
         return what_dist
     else:  # everything esle we fail
@@ -994,10 +1002,10 @@ def create_log_dir(hosts_dictionary, log_dir_timestamp):
 def latency_test(hosts_dictionary, logdir, fping_count):
     fping_count_str = str(fping_count)
     hosts_fping = ""
-    for host in hosts_dictionary.keys():  # we ping ourselvels as well
+    for host in sorted(hosts_dictionary.keys()):  # we ping ourselvels as well
         hosts_fping = hosts_fping + host + " "
 
-    for srchost in hosts_dictionary.keys():
+    for srchost in sorted(hosts_dictionary.keys()):
         print("")
         print("Starting ping run from " + srchost + " to all nodes")
         fileurl = os.path.join(logdir, "lat_" + srchost + "_" + "all")

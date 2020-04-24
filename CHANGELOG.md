@@ -50,3 +50,7 @@ Changelog:
 - 1.10
     - Fixed issue with two nodes test on python3. New min number of nodes is 3 (STG Defect 241194)
     - Mitigated issue of extra SSH lines that messed up the nsdperf wrapper on a corner case of ssh host keys (STG Defect 241193)
+
+- 1.11
+    - Sort the IPs for latency test
+    - Moved to distro for Python 3 as dist() and linux_distribution() functions are deprecated in Python 3.5
