@@ -54,3 +54,8 @@ Changelog:
 - 1.11
     - Sort the IPs for latency test
     - Moved to distro for Python 3 as dist() and linux_distribution() functions are deprecated in Python 3.5
+
+- 1.12
+    - Issue with RDMA tests and RHEL 8.1 or higher
+    - Added saved CSV file of results for comparison
+    - Changed minimum number of nodes to two

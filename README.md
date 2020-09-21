@@ -29,12 +29,12 @@ Remarks:
 
   - The host where this tool is locally run must be part of the testbed of hosts being tested
   - As the runtime can be long if you plan to disconnect from the system run the tool with either *screen* or *tmux*. Do not use nohup as it would not spawn the subprocesses correclty
-  - This tool runs on RedHat Enterprise Linux 7.5 or newer and 8.0 or newer on x86_64 and ppc64le architectures.
-  - Only Python standard libraries are used.
+  - This tool runs on RedHat Enterprise Linux 7.5 or newer and 8.0 or newer on x86_64 and ppc64le mixed architectures.
+  - Only Python standard libraries are used. But for Python3 we would need python3-distro
   - SSH root passwordless access must be configured from the node that runs the tool to all the nodes that participate in the tests. This tool will log an error if any node does not meet this requirement.
   - The minimum FPING_COUNT value for a valid ECE test must be 500, and a minimum of 10 (defaults to 500).
   - The minimum PERF_RUNTIME value for a valid ECE test must be 1200, and a minimum of 30 (defaults to 1200).
-  - The number of hosts must be between 3 and 64. The upper limit is the tested limit.
+  - The number of hosts must be between 2 and 64. The upper limit is the tested limit. If you need to run it on more nodes contact us.
   - This tool generates a log directory with all the raw data output for future comparisons
   - This tool returns 0 if all tests are passed in all nodes, and returns an integer > 0 if any errors are detected.
   - TCP port 6668 needs to be reachable and not in use in all nodes.

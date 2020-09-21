@@ -15,6 +15,7 @@ import operator
 from math import sqrt, ceil
 from functools import reduce
 import re
+import csv
 
 # Colorful constants
 RED = '\033[91m'
@@ -38,7 +39,7 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.11"
+KOET_VERSION = "1.12"
 
 try:
     raw_input      # Python 2
@@ -418,13 +419,12 @@ def check_os_redhat(os_dictionary):
             #print(GREEN + "OK: " + NOCOLOR + redhat_distribution_str +
             #      " is a supported OS for this tool")
             #print("")
-            if redhat_distribution[1] == "8.0":
+            if "8." in redhat_distribution[1]:
                 redhat8 = True
         else:
             sys.exit(error_message)
-    except Exception as e:
+    except Exception:
         sys.exit(error_message)
-        print("")
     return redhat8
 
 
@@ -926,14 +926,14 @@ def check_hosts_are_ips(hosts_dictionary):
 def check_hosts_number(hosts_dictionary):
     number_unique_hosts = len(hosts_dictionary)
     number_unique_hosts_str = str(number_unique_hosts)
-    if len(hosts_dictionary) > 64 or len(hosts_dictionary) < 3:
+    if len(hosts_dictionary) > 64 or len(hosts_dictionary) < 2:
         sys.exit(
             RED +
             "QUIT: " +
             NOCOLOR +
             "the number of hosts is not valid. It is " +
             number_unique_hosts_str +
-            " and should be between 3 and 64 unique hosts.\n")
+            " and should be between 2 and 64 unique hosts.\n")
 
 
 def create_local_log_dir(log_dir_timestamp):
@@ -1319,6 +1319,35 @@ def load_multiple_fping(logdir, hosts_dictionary):
         min_all = []
     return (all_fping_dictionary, all_fping_dictionary_max,
             all_fping_dictionary_min, all_fping_dictionary_stddev)
+
+
+def save_throughput_to_csv(logdir, throughput_dict):
+    # We save per node and all to all
+    fileurl = os.path.join(logdir, "throughput.csv")
+    try:
+        with open(fileurl, 'w') as csv_file:
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow(["Host", "Throughput MB/sec"])
+            for host in throughput_dict.keys():
+                host_key = str(host)
+                throughput_v = int(throughput_dict[host])
+                csv_writer.writerow([host_key, throughput_v])
+        print(
+            GREEN +
+            "INFO: " +
+            NOCOLOR +
+            "CSV file with throughput information can be found at " +
+            fileurl
+        )
+    except BaseException:
+        print(
+            RED +
+            "ERROR: " +
+            NOCOLOR +
+            "Cannot write throughput.csv file on " + 
+            logdir
+            )
+        sys.exit(1)
 
 
 def nsd_KPI(min_nsd_throughput,
@@ -1836,7 +1865,7 @@ def main():
     # Check hosts are IP addresses
     check_hosts_are_ips(hosts_dictionary)
 
-    # Check hosts are 3 to 64
+    # Check hosts are 2 to 64
     check_hosts_number(hosts_dictionary)
 
     # Initial header
@@ -1937,6 +1966,10 @@ def main():
     # Exit protocol
     lat_kpi_ok, fping_kpi_ok, perf_kpi_ok, perf_rt_ok = check_kpi_is_ok(
         max_avg_latency, fping_count, min_nsd_throughput, perf_runtime)
+    save_throughput_to_csv(
+        logdir,
+        throughput_dict
+    )
     DEVNULL.close()
     return_code = print_end_summary(
         all_avg_fping_errors,
