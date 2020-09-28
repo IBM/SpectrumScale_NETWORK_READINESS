@@ -59,3 +59,6 @@ Changelog:
     - Issue with RDMA tests and RHEL 8.1 or higher
     - Added saved CSV file of results for comparison
     - Changed minimum number of nodes to two
+- 1.13
+    - Fixed issue with 2 nodes
+    - Added CentOS 7.8 and 8.2

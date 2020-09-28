@@ -39,7 +39,7 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.12"
+KOET_VERSION = "1.13"
 
 try:
     raw_input      # Python 2
@@ -1148,11 +1148,19 @@ def stddev_list(list, mean):
     list = [lat.replace('-', '1000.00') for lat in list]
     list = [float(lat) for lat in list]
     if PYTHON3:
-        stddev_lat = statistics.stdev(list)
+        try:
+            stddev_lat = statistics.stdev(list)
+        except statistics.StatisticsError:
+            # Assuming here the error is due 2 node run, not ideal
+            stddev_lat = 0
     else:
-        stddev_lat = sqrt(float(
-            reduce(lambda x, y: x + y, map(
-                lambda x: (x - mean) ** 2, list))) / len(list))
+        try:
+            stddev_lat = sqrt(float(
+                reduce(lambda x, y: x + y, map(
+                    lambda x: (x - mean) ** 2, list))) / len(list))
+        except TypeError:
+            # Assuming here the error is due 2 node run, not ideal
+            stddev_lat = 0
     stddev_lat = Decimal(stddev_lat)
     stddev_lat = round(stddev_lat, 2)
     return stddev_lat
