@@ -1312,6 +1312,7 @@ def load_multiple_fping(logdir, hosts_dictionary):
             latencies_list = latencies.split(' ')
             # our mean calculation expect strings. Need to change this when
             # optimizing
+            print(latencies_list)
             mean_all.append(str(mean_list(latencies_list)))
             max_all.append(max(latencies_list))
             min_all.append(min(latencies_list))
