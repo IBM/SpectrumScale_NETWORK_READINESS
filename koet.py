@@ -39,7 +39,7 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.13"
+KOET_VERSION = "1.14"
 
 try:
     raw_input      # Python 2
@@ -859,9 +859,9 @@ def check_rdma_ports(hosts_dictionary, rdma_ports_list):
     errors_tool = 0
     fatal_error = False
     for host in hosts_dictionary.keys():
-        ibdev2netdev_filepath = "/usr/bin/ibdev2netdev"
+        ibdev2netdev_filepath = "ibdev2netdev"
         error_tool_ibdev = check_rdma_tools(host, ibdev2netdev_filepath)
-        ibstat_filepath = "/usr/sbin/ibstat"
+        ibstat_filepath = "ibstat"
         error_tool_ibstat = check_rdma_tools(host, ibstat_filepath)
     errors_tool = error_tool_ibdev + error_tool_ibstat
     if errors_tool > 0:
@@ -1532,18 +1532,34 @@ def fping_KPI(
     for host in fping_dictionary.keys():
         if fping_dictionary[host] >= max_avg_latency:
             if rdma_test:
-                print(YELLOW +
-                      "WARNING: " +
-                      NOCOLOR +
-                      "on host " +
-                      host +
-                      " the " +
-                      test_string +
-                      " average ICMP latency is " +
-                      str(fping_dictionary[host]) +
-                      " msec. Which is higher than the KPI of " +
-                      max_avg_latency_str +
-                      " msec")
+                if ping_dictionary[host] >= 2*max_avg_latency:
+                    errors = errors + 1  # yes yes +=
+                    print(RED +
+                        "ERROR: " +
+                        NOCOLOR +
+                        "on host " +
+                        host +
+                        " the " +
+                        test_string +
+                        " average ICMP latency is " +
+                        str(fping_dictionary[host]) +
+                        " msec. Which is higher than the 2*KPI of " +
+                        max_avg_latency_str +
+                        " msec")
+                else:
+                    # It is more than KPI but less than double on RDMA
+                    print(YELLOW +
+                        "WARNING: " +
+                        NOCOLOR +
+                        "on host " +
+                        host +
+                        " the " +
+                        test_string +
+                        " average ICMP latency is " +
+                        str(fping_dictionary[host]) +
+                        " msec. Which is higher than the KPI of " +
+                        max_avg_latency_str +
+                        " msec")
             else:
                 errors = errors + 1  # yes yes +=
                 print(RED +

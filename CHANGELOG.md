@@ -62,3 +62,10 @@ Changelog:
 - 1.13
     - Fixed issue with 2 nodes
     - Added CentOS 7.8 and 8.2
+- 1.14
+    - Re-added severity of ICMP latencies for RDMA test mode that were taken away on 1.8. But double the KPI on RDMA for ICMP latency
+    - Add a check for all PATH for binaries
+    - Added CentOS 7.9 and 8.3
+    - Added RHEL 7.9 and 8.3
+    - Removed CentOS 7.5 and 8.0
+    - Removed RHEL 7.5 and 8.0
