@@ -2992,7 +2992,7 @@ static string rdmaStart()
       if (useCM)
       {
         bool stop = false;
-        for (auto it = portIfSet.begin(); it != portIfSet.end(); ++j)
+        for (auto it = portIfSet.begin(); it != portIfSet.end(); ++it)
         {
           portIf = *it;
           for (ni = netInterfaces.begin(); ni != netInterfaces.end(); ++ni)
