@@ -2937,7 +2937,7 @@ static string rdmaStart()
   for (rdi = rdmaDevTab.begin(); rdi != rdmaDevTab.end(); ++rdi)
   {
     int j;
-    UInt64 portIf;
+    set<UInt64> portIfSet;
     IpAddr portAddr;
     string ifName;
     RdmaDevice *rdevP = *rdi;
@@ -2963,7 +2963,8 @@ static string rdmaStart()
       }
 
       // Fetch the interface ID portion of the GID for the port
-      portIf = 0;
+      portIfSet.clear();
+      UInt64 portIf = 0;
       for (j = 0; j < portAttr.gid_tbl_len; j++)
       {
         union ibv_gid gid;
@@ -2976,6 +2977,8 @@ static string rdmaStart()
             portIf = gid.global.interface_id;
 
         if (portIf != 0)
+          portIfSet.insert(portIf);
+        else
           break;
       }
 
@@ -2988,56 +2991,68 @@ static string rdmaStart()
       ifName.clear();
       if (useCM)
       {
-        for (ni = netInterfaces.begin(); ni != netInterfaces.end(); ++ni)
+        bool stop = false;
+        for (auto it = portIfSet.begin(); it != portIfSet.end(); ++j)
         {
-          if (!ni->addr.isLinkLocal())
-            continue;
-          if (rdevP->ibContext->device->transport_type == IBV_TRANSPORT_IWARP)
+          portIf = *it;
+          for (ni = netInterfaces.begin(); ni != netInterfaces.end(); ++ni)
           {
-            struct ifreq mac_req;
-
-            if (ioctl_sock < 0)
-              ioctl_sock = socket(AF_INET, SOCK_DGRAM, 0);
-            if (ioctl_sock < 0)
-              break;
-
-            memset(&mac_req, 0, sizeof mac_req);
-            strcpy(mac_req.ifr_name, ni->ifName.c_str());
-
-            if (ioctl(ioctl_sock, SIOCGIFHWADDR, &mac_req) < 0)
+            if (!ni->addr.isLinkLocal())
+              continue;
+            if (rdevP->ibContext->device->transport_type == IBV_TRANSPORT_IWARP)
             {
-               Logm("Cannot get HW address");
-               continue;
+              struct ifreq mac_req;
+
+              if (ioctl_sock < 0)
+                ioctl_sock = socket(AF_INET, SOCK_DGRAM, 0);
+              if (ioctl_sock < 0)
+              {
+                stop = true;
+                break;
+              }
+
+              memset(&mac_req, 0, sizeof mac_req);
+              strcpy(mac_req.ifr_name, ni->ifName.c_str());
+
+              if (ioctl(ioctl_sock, SIOCGIFHWADDR, &mac_req) < 0)
+              {
+                Logm("Cannot get HW address");
+                continue;
+              }
+
+              if (!(memcmp(&portIf, mac_req.ifr_hwaddr.sa_data, 6)))
+              {
+                ifName = ni->ifName;
+                Logt(3, "Found iWarp RDMA port " << portIfToString(portIf) << " " << ni->ifName);
+                stop = true;
+                break;
+              }
             }
-
-            if (!(memcmp(&portIf, mac_req.ifr_hwaddr.sa_data, 6)))
+            else
             {
-              ifName = ni->ifName;
-              Logt(3, "Found iWarp RDMA port " << portIfToString(portIf) << " " << ni->ifName);
-              break;
+
+  #ifdef IPV6_SUPPORT
+              struct sockaddr_storage saddr;
+              struct sockaddr_in6 *sip6 =
+                reinterpret_cast<sockaddr_in6 *>(ni->addr.toSockaddr(0, &saddr));
+
+              // 7 bytes of the port interface ID will match 7 bytes in the
+              // IPv6 address.  The first byte won't match because the
+              // universal/local bit is flipped in the IPv6 address (see
+              // RFC 4291).
+              char *a = reinterpret_cast<char *>(&portIf);
+              char *b = reinterpret_cast<char *>(&sip6->sin6_addr.s6_addr);
+              if (!memcmp(a+1, b+9, 7))
+              {
+                ifName = ni->ifName;
+                stop = true;
+                break;
+              }
+  #endif
             }
           }
-          else
-          {
-
-#ifdef IPV6_SUPPORT
-            struct sockaddr_storage saddr;
-            struct sockaddr_in6 *sip6 =
-              reinterpret_cast<sockaddr_in6 *>(ni->addr.toSockaddr(0, &saddr));
-
-            // 7 bytes of the port interface ID will match 7 bytes in the
-            // IPv6 address.  The first byte won't match because the
-            // universal/local bit is flipped in the IPv6 address (see
-            // RFC 4291).
-            char *a = reinterpret_cast<char *>(&portIf);
-            char *b = reinterpret_cast<char *>(&sip6->sin6_addr.s6_addr);
-            if (!memcmp(a+1, b+9, 7))
-            {
-              ifName = ni->ifName;
-              break;
-            }
-#endif
-          }
+          if (stop)
+            break;
         }
 
         // Skip this port if no link-local address was found
