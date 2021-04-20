@@ -44,6 +44,7 @@ Remarks:
   - When using RDMA the IP addresses to be defined into the test should be the ones that would be part of the admin network on Spectrum Scale. When not using RDMA should be the ones to be on the daemon network.
   - When using RDMA ports that are tested must be up as shown by [*ibdev2netdev*](https://community.mellanox.com/s/article/ibdev2netdev)
   - When using RedHat Enterprise Linux 8 series you **must** select a default python version with the command: *alternatives --config python*
+  - When you set a bond device on top of RDMA devices, be sure that ''ibdev2netdev'' reports only ib names not bond names. If it shows bond devices port, those will find as down by this tool
 
 
 To run the test without a JSON file already populated with the Spectrum Scale daemon IP (if RDMA use the admin ones) addresses and generating one JSON for future runs:

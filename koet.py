@@ -39,7 +39,7 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.14"
+KOET_VERSION = "1.15"
 
 try:
     raw_input      # Python 2
@@ -657,8 +657,7 @@ def ssh_file_exists(host, fileurl):
                                        '-o',
                                        'LogLevel=error',
                                        host,
-                                       'ls',
-                                       '-1',
+                                       'which',
                                        fileurl],
                                       stdout=DEVNULL,
                                       stderr=DEVNULL)

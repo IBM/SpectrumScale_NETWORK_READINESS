@@ -69,3 +69,5 @@ Changelog:
     - Added RHEL 7.9 and 8.3
     - Removed CentOS 7.5 and 8.0
     - Removed RHEL 7.5 and 8.0
+- 1.15
+    - Fix RDMA checks on ibutils ibdev2net
