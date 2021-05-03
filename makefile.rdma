@@ -1,9 +1,9 @@
 # Makefile for net programs
 CXX = g++
-LIBS = -lpthread -lrt
-CFLAGS = -O2
+LIBS = -lpthread -lrt -libverbs -lrdmacm
+CFLAGS = -O2 -DRDMA
 
-PROGS = nsdperf
+PROGS = nsdperf_rdma
 
 all: $(PROGS)
 
