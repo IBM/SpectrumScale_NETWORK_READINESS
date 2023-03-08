@@ -71,3 +71,6 @@ Changelog:
     - Removed RHEL 7.5 and 8.0
 - 1.15
     - Fix RDMA checks on ibutils ibdev2net
+- 1.16
+    - Updte to RHEL 8.6+
+    - Force python3

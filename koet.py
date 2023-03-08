@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import json
 import os
 import sys
@@ -39,14 +39,10 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.15"
+KOET_VERSION = "1.16"
 
-try:
-    raw_input      # Python 2
-    PYTHON3 = False
-except NameError:  # Python 3
-    raw_input = input
-    PYTHON3 = True
+raw_input = input
+PYTHON3 = True
 
 if PYTHON3:
     import statistics
@@ -1531,7 +1527,7 @@ def fping_KPI(
     for host in fping_dictionary.keys():
         if fping_dictionary[host] >= max_avg_latency:
             if rdma_test:
-                if ping_dictionary[host] >= 2*max_avg_latency:
+                if fping_dictionary[host] >= 2*max_avg_latency:
                     errors = errors + 1  # yes yes +=
                     print(RED +
                         "ERROR: " +

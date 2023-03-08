@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import os
 import sys
 import time
@@ -9,12 +9,8 @@ import re
 import threading
 import subprocess
 
-try:
-    raw_input      # Python 2
-    PYTHON3 = False
-except NameError:  # Python 3
-    raw_input = input
-    PYTHON3 = True
+
+PYTHON3 = True
 
 # Global variables with default value
 nsdperfPath = "/tmp/nsdperf"
@@ -284,11 +280,8 @@ def getNetData(allNodes):
                  "\"nstat -az TcpRetransSegs\" output on node %s" % (node))
         ipLinkInfo = chkcmd(
             "%s %s \"ip -s link show %s\"" % (ssh, node, netDev[node]))
-        ipLinkFormat = r"RX: bytes  packets  errors  dropped overrun mcast" \
-            r"\s+\d+\s+\d+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+TX: bytes  " \
-            r"packets  errors  dropped carrier collsns\s+\d+\s+\d+\s+(\d+)" \
-            r"\s+(\d+)\s+(\d+)\s+(\d+)"
-
+        ipLinkFormat = r"RX:\s*bytes\s*packets\s*errors\s*dropped\s*missed\s*mcast\s+\d+\s+\d+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+TX:\s*bytes\s*packets\s*errors\s*dropped\s*carrier\s*collsns\s+\d+\s+\d+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)"
+        
         ipLink = re.search(ipLinkFormat, ipLinkInfo)
         if (not ipLink):
             halt("Error, cannot match for network related data in "
