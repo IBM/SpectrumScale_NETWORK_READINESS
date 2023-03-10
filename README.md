@@ -5,19 +5,9 @@ This tool attempts to hide much of the complexity of running network measurement
 
 **WARNING:** This is a network stress tool, hence it will stress the network. If you are using the network for some other service while running this tool you might feel service degradation. This tool, as stated on the license, it comes with no warranty of any kind.
 
-**Running on RHEL 8.x Systems**
-Because RHEL8 does not define python executable, either version 2 or version 3 needs to be defined as default python using the alternatives command:
-
-*alternatives --config python*
-
-You must pick either python2 or python3. This tool will work with either python version.  
-
-An explanation of this can be found in many articles online, for example: https://developers.redhat.com/blog/2018/11/14/python-in-rhel-8/
-
 **PREREQUISITES:** Before running this tool you **must** install the software prerequisites. Those are:
 
-* gcc-c++, psmisc, and fping
-* For Python3: python3-distro
+* gcc-c++, psmisc, fping, and python3-distro
 
 The tool expects the SW to be installed as RPM package, and checks for those if you install those by other means you can still run this tool by using the ***--rpm_check_disabled*** flag. But only if you installed the prerequisites, the tool would crash if the SW is not installed and you disable the checks.
 
@@ -30,7 +20,6 @@ Remarks:
   - The host where this tool is locally run must be part of the testbed of hosts being tested
   - As the runtime can be long if you plan to disconnect from the system run the tool with either *screen* or *tmux*. Do not use nohup as it would not spawn the subprocesses correclty
   - This tool runs on RedHat Enterprise Linux 7.5 or newer and 8.0 or newer on x86_64 and ppc64le mixed architectures.
-  - Only Python standard libraries are used. But for Python3 we would need python3-distro
   - SSH root passwordless access must be configured from the node that runs the tool to all the nodes that participate in the tests. This tool will log an error if any node does not meet this requirement.
   - The minimum FPING_COUNT value for a valid ECE test must be 500, and a minimum of 10 (defaults to 500).
   - The minimum PERF_RUNTIME value for a valid ECE test must be 1200, and a minimum of 30 (defaults to 1200).
