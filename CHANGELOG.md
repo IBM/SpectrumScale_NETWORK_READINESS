@@ -72,5 +72,6 @@ Changelog:
 - 1.15
     - Fix RDMA checks on ibutils ibdev2net
 - 1.16
-    - Updte to RHEL 8.6+
+    - Update to RHEL 8.6+
     - Force python3
+    - Fixed issue with regex to obtain packets info form interface on RHEL 8.6+
