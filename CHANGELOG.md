@@ -75,3 +75,6 @@ Changelog:
     - Update to RHEL 8.6+
     - Force python3
     - Fixed issue with regex to obtain packets info form interface on RHEL 8.6+
+- 1.17
+    - Removed hardcoded path for ibdev2
+    - Removed RPM requirement for RDMA RH8

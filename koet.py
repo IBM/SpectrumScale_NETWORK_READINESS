@@ -39,7 +39,7 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.16"
+KOET_VERSION = "1.17"
 
 raw_input = input
 PYTHON3 = True
@@ -672,7 +672,7 @@ def ssh_rdma_ports_are_up(host, rdma_ports_list):
                                        '-o',
                                        'LogLevel=error',
                                        host,
-                                       '/usr/bin/ibdev2netdev',
+                                       'ibdev2netdev',
                                        '|',
                                        'grep',
                                        port,
@@ -746,13 +746,13 @@ def map_ib_to_mlx(host, rdma_ports_list):
     try:
         raw_os = os.popen(
                         ssh_command +
-                        "/usr/bin/ibdev2netdev|awk '{print$5}'").read()
+                        "ibdev2netdev|awk '{print$5}'").read()
         raw_mlx = os.popen(
                         ssh_command +
-                        "/usr/bin/ibdev2netdev|awk '{print$1}'").read()
+                        "ibdev2netdev|awk '{print$1}'").read()
         raw_port = os.popen(
                         ssh_command +
-                        "/usr/bin/ibdev2netdev|awk '{print$3}'").read()
+                        "ibdev2netdev|awk '{print$3}'").read()
     except BaseException:
         sys.exit(RED + "QUIT: " + NOCOLOR +
                  "There was an issue to query rdma cards on " + host + "\n")
