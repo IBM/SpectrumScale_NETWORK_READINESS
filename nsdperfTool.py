@@ -280,7 +280,7 @@ def getNetData(allNodes):
                  "\"nstat -az TcpRetransSegs\" output on node %s" % (node))
         ipLinkInfo = chkcmd(
             "%s %s \"ip -s link show %s\"" % (ssh, node, netDev[node]))
-        ipLinkFormat = r"RX:\s*bytes\s*packets\s*errors\s*dropped\s*missed\s*mcast\s+\d+\s+\d+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+TX:\s*bytes\s*packets\s*errors\s*dropped\s*carrier\s*collsns\s+\d+\s+\d+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)"
+        ipLinkFormat = r"RX:\s*bytes\s*packets\s*errors\s*dropped\s*(?:missed|overrun)\s*mcast\s+\d+\s+\d+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+TX:\s*bytes\s*packets\s*errors\s*dropped\s*carrier\s*collsns\s+\d+\s+\d+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)"
         
         ipLink = re.search(ipLinkFormat, ipLinkInfo)
         if (not ipLink):
