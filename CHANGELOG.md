@@ -78,3 +78,7 @@ Changelog:
 - 1.17
     - Removed hardcoded path for ibdev2
     - Removed RPM requirement for RDMA RH8
+
+- 1.18
+    - Rocky and RHEL up to 8.10
+    - Preparation for 9.x

@@ -11,7 +11,6 @@ import time
 from shutil import copyfile
 from decimal import Decimal
 import argparse
-import operator
 from math import sqrt, ceil
 from functools import reduce
 import re
@@ -39,7 +38,7 @@ IPPATT = re.compile('.*inet\s+(?P<ip>.*)\/\d+')
 DEVNULL = open(os.devnull, 'w')
 
 # This script version, independent from the JSON versions
-KOET_VERSION = "1.17"
+KOET_VERSION = "1.18"
 
 raw_input = input
 PYTHON3 = True
@@ -416,6 +415,8 @@ def check_os_redhat(os_dictionary):
             #      " is a supported OS for this tool")
             #print("")
             if "8." in redhat_distribution[1]:
+                redhat8 = True
+            elif "9." in redhat_distribution[1]:
                 redhat8 = True
         else:
             sys.exit(error_message)
