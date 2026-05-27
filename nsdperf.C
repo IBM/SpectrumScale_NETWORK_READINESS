@@ -8153,6 +8153,11 @@ int RdmaAsync::threadBody()
     // If device table size changes, rebuild the poll list
     if (rdmaDevTab.size() != lastDevCount)
     {
+      // The async fd is non-blocking; stale duplicate entries can make one
+      // event look readable more than once and turn the second drain into EAGAIN.
+      rdevList.clear();
+      fdList.clear();
+
       rdevList.reserve(rdmaDevTab.size());
       fdList.reserve(rdmaDevTab.size());
       pfd.events = POLLIN;
@@ -8176,6 +8181,7 @@ int RdmaAsync::threadBody()
       rdevList.push_back(NULL);
       pfd.fd = asyncSocks[0];
       fdList.push_back(pfd);
+      lastDevCount = rdmaDevTab.size();
     }
 
     // Poll for an event on one of the RDMA devices
